@@ -3,6 +3,7 @@ export const SCENE_HEIGHT = 1600;
 export const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 export type WhiteboardTool = 'select' | 'hand' | 'draw' | 'rectangle' | 'ellipse' | 'note';
+export type ResizeHandle = 'nw' | 'ne' | 'se' | 'sw';
 
 export interface ScenePoint {
   x: number;
@@ -71,6 +72,11 @@ export interface ViewportState {
   x: number;
   y: number;
   zoom: number;
+}
+
+interface ElementMinimumSize {
+  width: number;
+  height: number;
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -317,6 +323,88 @@ export const removeElement = (scene: WhiteboardScene, elementId: string): Whiteb
   };
 };
 
+export const duplicateElement = (
+  scene: WhiteboardScene,
+  elementId: string,
+): { scene: WhiteboardScene; duplicatedElementId: string | null } => {
+  const sourceElement = scene.elements.find((element) => element.id === elementId);
+
+  if (!sourceElement) {
+    return {
+      scene,
+      duplicatedElementId: null,
+    };
+  }
+
+  const duplicatedElement = {
+    ...sourceElement,
+    id: createElementId(),
+    x: sourceElement.x + 32,
+    y: sourceElement.y + 32,
+    points:
+      sourceElement.type === 'stroke'
+        ? sourceElement.points.map((point) => ({
+            x: point.x + 32,
+            y: point.y + 32,
+          }))
+        : undefined,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  } as WhiteboardElement;
+
+  return {
+    scene: {
+      ...scene,
+      elements: [...scene.elements, duplicatedElement],
+    },
+    duplicatedElementId: duplicatedElement.id,
+  };
+};
+
+export const reorderElement = (
+  scene: WhiteboardScene,
+  elementId: string,
+  direction: 'forward' | 'backward' | 'front' | 'back',
+): WhiteboardScene => {
+  const currentIndex = scene.elements.findIndex((element) => element.id === elementId);
+
+  if (currentIndex === -1) {
+    return scene;
+  }
+
+  const nextElements = [...scene.elements];
+  const [targetElement] = nextElements.splice(currentIndex, 1);
+
+  if (!targetElement) {
+    return scene;
+  }
+
+  let nextIndex = currentIndex;
+
+  if (direction === 'forward') {
+    nextIndex = Math.min(currentIndex + 1, nextElements.length);
+  }
+
+  if (direction === 'backward') {
+    nextIndex = Math.max(currentIndex - 1, 0);
+  }
+
+  if (direction === 'front') {
+    nextIndex = nextElements.length;
+  }
+
+  if (direction === 'back') {
+    nextIndex = 0;
+  }
+
+  nextElements.splice(nextIndex, 0, targetElement);
+
+  return {
+    ...scene,
+    elements: nextElements,
+  };
+};
+
 export const translateElement = (
   element: WhiteboardElement,
   deltaX: number,
@@ -342,6 +430,91 @@ export const translateElement = (
     x: element.x + deltaX,
     y: element.y + deltaY,
     updatedAt,
+  };
+};
+
+export const isElementResizable = (element: WhiteboardElement): boolean => {
+  return element.type !== 'stroke';
+};
+
+const getElementMinimumSize = (element: WhiteboardElement): ElementMinimumSize => {
+  if (element.type === 'note') {
+    return {
+      width: 180,
+      height: 120,
+    };
+  }
+
+  if (element.type === 'image') {
+    return {
+      width: 120,
+      height: 120,
+    };
+  }
+
+  return {
+    width: 48,
+    height: 48,
+  };
+};
+
+export const resizeElement = (
+  element: WhiteboardElement,
+  handle: ResizeHandle,
+  deltaX: number,
+  deltaY: number,
+): WhiteboardElement => {
+  if (!isElementResizable(element)) {
+    return element;
+  }
+
+  const minimumSize = getElementMinimumSize(element);
+  let nextX = element.x;
+  let nextY = element.y;
+  let nextWidth = element.width;
+  let nextHeight = element.height;
+
+  if (handle === 'nw' || handle === 'sw') {
+    nextX = element.x + deltaX;
+    nextWidth = element.width - deltaX;
+  }
+
+  if (handle === 'ne' || handle === 'se') {
+    nextWidth = element.width + deltaX;
+  }
+
+  if (handle === 'nw' || handle === 'ne') {
+    nextY = element.y + deltaY;
+    nextHeight = element.height - deltaY;
+  }
+
+  if (handle === 'sw' || handle === 'se') {
+    nextHeight = element.height + deltaY;
+  }
+
+  if (nextWidth < minimumSize.width) {
+    if (handle === 'nw' || handle === 'sw') {
+      nextX -= minimumSize.width - nextWidth;
+    }
+
+    nextWidth = minimumSize.width;
+  }
+
+  if (nextHeight < minimumSize.height) {
+    if (handle === 'nw' || handle === 'ne') {
+      nextY -= minimumSize.height - nextHeight;
+    }
+
+    nextHeight = minimumSize.height;
+  }
+
+  return {
+    ...element,
+    x: nextX,
+    y: nextY,
+    width: nextWidth,
+    height: nextHeight,
+    updatedAt: nowIso(),
   };
 };
 

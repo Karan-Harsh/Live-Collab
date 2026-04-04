@@ -12,7 +12,9 @@ import {
   createStrokeElement,
   getElementBounds,
   getTopmostElementAtPoint,
+  isElementResizable,
   removeElement,
+  resizeElement,
   translateElement,
   upsertElement,
 } from '@/lib/whiteboard-scene';
@@ -20,6 +22,7 @@ import {
 import type {
   EllipseElement,
   RectangleElement,
+  ResizeHandle,
   ScenePoint,
   ViewportState,
   WhiteboardElement,
@@ -61,6 +64,13 @@ type DraftState =
       pointer: ScenePoint;
     }
   | {
+      kind: 'resize';
+      elementId: string;
+      pointer: ScenePoint;
+      handle: ResizeHandle;
+      origin: WhiteboardElement;
+    }
+  | {
       kind: 'pan';
       clientX: number;
       clientY: number;
@@ -77,6 +87,45 @@ const roundPoint = (point: ScenePoint): ScenePoint => ({
   x: Math.round(point.x),
   y: Math.round(point.y),
 });
+
+const resizeHandles: ResizeHandle[] = ['nw', 'ne', 'se', 'sw'];
+
+const getResizeHandlePosition = (
+  bounds: { x: number; y: number; width: number; height: number },
+  handle: ResizeHandle,
+): ScenePoint => {
+  switch (handle) {
+    case 'nw':
+      return { x: bounds.x, y: bounds.y };
+    case 'ne':
+      return { x: bounds.x + bounds.width, y: bounds.y };
+    case 'se':
+      return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+    case 'sw':
+      return { x: bounds.x, y: bounds.y + bounds.height };
+    default:
+      return { x: bounds.x, y: bounds.y };
+  }
+};
+
+const getResizeHandleFromTarget = (target: EventTarget | null): ResizeHandle | null => {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+
+  const resizeHandleValue = target.closest('[data-resize-handle]')?.getAttribute('data-resize-handle');
+
+  if (
+    resizeHandleValue === 'nw' ||
+    resizeHandleValue === 'ne' ||
+    resizeHandleValue === 'se' ||
+    resizeHandleValue === 'sw'
+  ) {
+    return resizeHandleValue;
+  }
+
+  return null;
+};
 
 const renderElement = (
   element: WhiteboardElement,
@@ -157,18 +206,46 @@ const renderElement = (
       ) : null}
 
       {isSelected ? (
-        <rect
-          x={selectionBounds.x - 8}
-          y={selectionBounds.y - 8}
-          width={selectionBounds.width + 16}
-          height={selectionBounds.height + 16}
-          rx={20}
-          fill="none"
-          stroke="#14b8a6"
-          strokeDasharray="10 8"
-          strokeWidth={3}
-          pointerEvents="none"
-        />
+        <>
+          <rect
+            x={selectionBounds.x - 8}
+            y={selectionBounds.y - 8}
+            width={selectionBounds.width + 16}
+            height={selectionBounds.height + 16}
+            rx={20}
+            fill="none"
+            stroke="#14b8a6"
+            strokeDasharray="10 8"
+            strokeWidth={3}
+            pointerEvents="none"
+          />
+          {isElementResizable(element)
+            ? resizeHandles.map((handle) => {
+                const handlePosition = getResizeHandlePosition(selectionBounds, handle);
+
+                return (
+                  <g key={`${element.id}-${handle}`}>
+                    <circle
+                      cx={handlePosition.x}
+                      cy={handlePosition.y}
+                      r={14}
+                      fill="transparent"
+                      data-resize-handle={handle}
+                    />
+                    <circle
+                      cx={handlePosition.x}
+                      cy={handlePosition.y}
+                      r={7}
+                      fill="#f8fafc"
+                      stroke="#14b8a6"
+                      strokeWidth={3}
+                      data-resize-handle={handle}
+                    />
+                  </g>
+                );
+              })
+            : null}
+        </>
       ) : null}
     </g>
   );
@@ -287,8 +364,11 @@ export const WhiteboardCanvas = ({
       return;
     }
 
+    event.currentTarget.setPointerCapture(event.pointerId);
+
     const point = roundPoint(pointResult.point);
     const hitElement = getTopmostElementAtPoint(scene, point);
+    const resizeHandle = getResizeHandleFromTarget(event.target);
 
     if (tool === 'hand') {
       setDraft({
@@ -302,6 +382,26 @@ export const WhiteboardCanvas = ({
 
     if (tool === 'select') {
       onSelectElement(hitElement?.id ?? null);
+
+      if (
+        resizeHandle &&
+        selectedElementId &&
+        canEdit &&
+        scene.elements.find((element) => element.id === selectedElementId && isElementResizable(element))
+      ) {
+        const selectedElement = scene.elements.find((element) => element.id === selectedElementId);
+
+        if (selectedElement) {
+          setDraft({
+            kind: 'resize',
+            elementId: selectedElement.id,
+            pointer: point,
+            handle: resizeHandle,
+            origin: selectedElement,
+          });
+          return;
+        }
+      }
 
       if (hitElement && canEdit) {
         setDraft({
@@ -405,10 +505,24 @@ export const WhiteboardCanvas = ({
         elementId: draft.elementId,
         pointer: point,
       });
+      return;
+    }
+
+    if (draft.kind === 'resize' && canEdit) {
+      const deltaX = point.x - draft.pointer.x;
+      const deltaY = point.y - draft.pointer.y;
+
+      onSceneChange(
+        upsertElement(scene, resizeElement(draft.origin, draft.handle, deltaX, deltaY)),
+      );
     }
   };
 
-  const handlePointerUp = (): void => {
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
     if (!draft) {
       return;
     }

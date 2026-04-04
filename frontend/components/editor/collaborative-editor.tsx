@@ -15,9 +15,12 @@ import {
   MAX_IMAGE_UPLOAD_BYTES,
   clampViewportZoom,
   createImageElement,
+  duplicateElement,
   parseSceneFromContent,
+  reorderElement,
   removeElement,
   serializeScene,
+  updateNoteElementText,
   upsertElement,
 } from '@/lib/whiteboard-scene';
 import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime-service';
@@ -315,6 +318,50 @@ export const CollaborativeEditor = ({
     );
   };
 
+  const handleUpdateSelectedNoteText = (text: string): void => {
+    if (!selectedElement || selectedElement.type !== 'note' || !canEdit) {
+      return;
+    }
+
+    setScene((currentScene) =>
+      upsertElement(currentScene, updateNoteElementText(selectedElement, text)),
+    );
+  };
+
+  const handleDuplicateSelected = (): void => {
+    if (!selectedElementId || !canEdit) {
+      return;
+    }
+
+    let duplicatedElementId: string | null = null;
+
+    setScene((currentScene) => {
+      const duplicationResult = duplicateElement(currentScene, selectedElementId);
+      duplicatedElementId = duplicationResult.duplicatedElementId;
+      return duplicationResult.scene;
+    });
+
+    if (duplicatedElementId) {
+      setSelectedElementId(duplicatedElementId);
+    }
+  };
+
+  const handleBringToFront = (): void => {
+    if (!selectedElementId || !canEdit) {
+      return;
+    }
+
+    setScene((currentScene) => reorderElement(currentScene, selectedElementId, 'front'));
+  };
+
+  const handleSendToBack = (): void => {
+    if (!selectedElementId || !canEdit) {
+      return;
+    }
+
+    setScene((currentScene) => reorderElement(currentScene, selectedElementId, 'back'));
+  };
+
   const handleUploadRequested = (): void => {
     imageInputRef.current?.click();
   };
@@ -447,7 +494,11 @@ export const CollaborativeEditor = ({
             onResetView={() => setViewport(defaultViewport)}
             onDeleteSelected={handleDeleteSelected}
             onEditSelectedNote={handleEditSelectedNote}
+            onUpdateSelectedNoteText={handleUpdateSelectedNoteText}
             onUploadImage={handleUploadRequested}
+            onDuplicateSelected={handleDuplicateSelected}
+            onBringToFront={handleBringToFront}
+            onSendToBack={handleSendToBack}
           />
 
           <WhiteboardCanvas
