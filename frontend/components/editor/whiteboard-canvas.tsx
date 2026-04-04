@@ -739,7 +739,7 @@ export const WhiteboardCanvas = ({
         </g>
       </svg>
 
-      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[#080808]/92 px-4 py-2 text-[11px] font-medium text-slate-400">
         {tool === 'select'
           ? 'Shift to multi-select. Cmd/Ctrl + scroll to zoom.'
           : tool === 'hand'

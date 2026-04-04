@@ -25,11 +25,11 @@ interface WhiteboardToolbarProps {
 }
 
 const toolItems: Array<{ id: WhiteboardTool; label: string; short: string; keyHint: string }> = [
-  { id: 'select', label: 'Select', short: 'Sel', keyHint: 'V' },
+  { id: 'select', label: 'Select', short: 'Select', keyHint: 'V' },
   { id: 'hand', label: 'Hand', short: 'Hand', keyHint: 'H' },
-  { id: 'draw', label: 'Draw', short: 'Pen', keyHint: 'D' },
+  { id: 'draw', label: 'Draw', short: 'Draw', keyHint: 'D' },
   { id: 'rectangle', label: 'Rectangle', short: 'Rect', keyHint: 'R' },
-  { id: 'ellipse', label: 'Ellipse', short: 'Oval', keyHint: 'O' },
+  { id: 'ellipse', label: 'Ellipse', short: 'Ellipse', keyHint: 'O' },
   { id: 'arrow', label: 'Arrow', short: 'Arrow', keyHint: 'A' },
   { id: 'note', label: 'Note', short: 'Note', keyHint: 'N' },
   { id: 'text', label: 'Text', short: 'Text', keyHint: 'T' },
@@ -63,12 +63,12 @@ export const WhiteboardToolbar = ({
 
   return (
     <div className="flex items-start gap-3">
-      <div className="flex w-[108px] flex-col gap-3 rounded-[30px] border border-white/10 bg-[#0a0a0a]/94 p-3 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur">
+      <div className="flex w-[176px] flex-col gap-3 rounded-[28px] border border-white/12 bg-[#080808] p-3 shadow-[0_24px_90px_rgba(0,0,0,0.42)]">
         <div className="space-y-2">
-          <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">
             Tools
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
         {toolItems.map((item) => (
           <button
             key={item.id}
@@ -78,15 +78,15 @@ export const WhiteboardToolbar = ({
             disabled={!canEdit && item.id !== 'select' && item.id !== 'hand'}
             onClick={() => onToolChange(item.id)}
             className={cn(
-              'flex h-[52px] flex-col items-center justify-center rounded-[18px] border text-[10px] font-semibold uppercase tracking-[0.08em] transition',
+              'flex min-h-[50px] items-center justify-between rounded-[18px] border px-3 py-2 text-left transition',
               item.id === tool
-                ? 'border-white/20 bg-white/[0.12] text-white'
-                : 'border-white/8 bg-white/[0.03] text-white/55 hover:border-white/16 hover:bg-white/[0.08] hover:text-white',
+                ? 'border-white/20 bg-white/[0.14] text-white'
+                : 'border-white/10 bg-white/[0.03] text-white/72 hover:border-white/20 hover:bg-white/[0.08] hover:text-white',
               !canEdit && item.id !== 'select' && item.id !== 'hand' ? 'cursor-not-allowed opacity-40' : '',
             )}
           >
-            <span>{item.short}</span>
-            <span className="mt-1 text-[9px] font-medium tracking-[0.16em] text-white/35">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em]">{item.short}</span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white/45">
               {item.keyHint}
             </span>
           </button>
@@ -101,7 +101,7 @@ export const WhiteboardToolbar = ({
             className="h-11 w-full rounded-[18px] px-0 text-xs uppercase tracking-[0.18em]"
             onClick={onUploadImage}
           >
-            Image
+            Insert image
           </Button>
           <div className="grid grid-cols-3 gap-2">
             <Button variant="ghost" className="h-10 rounded-[16px] px-0" onClick={onZoomOut}>
@@ -125,12 +125,12 @@ export const WhiteboardToolbar = ({
       </div>
 
       {selectedElements.length > 0 || editableTextElement ? (
-        <div className="w-[290px] space-y-3 rounded-[30px] border border-white/10 bg-[#0a0a0a]/94 p-4 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur">
+        <div className="w-[300px] space-y-3 rounded-[28px] border border-white/12 bg-[#080808] p-4 shadow-[0_24px_90px_rgba(0,0,0,0.42)]">
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">
               Selection
             </p>
-            <div className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3">
+            <div className="rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-3">
               <p className="text-sm font-medium text-white">
                 {selectedElements.length === 1
                   ? selectedElement?.type === 'text'
@@ -208,7 +208,7 @@ export const WhiteboardToolbar = ({
           </div>
 
           {editableTextElement ? (
-            <div className="space-y-3 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4">
+            <div className="space-y-3 rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4">
               <div className="space-y-1">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
                   {editableTextElement.type === 'note' ? 'Note content' : 'Text content'}
