@@ -890,114 +890,84 @@ export const CollaborativeEditor = ({
         onCursorActivity={handleCursorActivity}
       />
 
-      <div className="pointer-events-none absolute left-4 top-4 z-20 w-full max-w-[360px]">
-        <div className="pointer-events-auto rounded-[28px] border border-white/12 bg-[#080808] px-5 py-4 shadow-[0_22px_80px_rgba(0,0,0,0.36)]">
-          <div className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] ${connectionMeta.textClassName}`}>
-            <span className={`h-2 w-2 rounded-full ${connectionMeta.dotClassName}`} />
-            <span>{connectionMeta.label}</span>
-            <span className="h-1 w-1 rounded-full bg-white/12" />
-            <span>{syncLabel}</span>
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-20">
+        <div className="grid grid-cols-[minmax(240px,320px)_1fr_minmax(230px,300px)] items-start gap-4">
+          <div className="pointer-events-auto rounded-[24px] border border-white/12 bg-[#080808] px-4 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
+            <div className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] ${connectionMeta.textClassName}`}>
+              <span className={`h-2 w-2 rounded-full ${connectionMeta.dotClassName}`} />
+              <span>{connectionMeta.label}</span>
+            </div>
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="mt-2 h-auto border-none bg-transparent px-0 py-0 text-[1.7rem] font-semibold tracking-[-0.05em] text-white focus:border-none focus:bg-transparent focus:shadow-none"
+              readOnly={!canEdit}
+            />
+            <div className="mt-2 flex items-center gap-2 text-xs text-white/45">
+              <span>{scene.elements.length} elements</span>
+              <span>&bull;</span>
+              <span>{activeCollaborators.length} active</span>
+              <span>&bull;</span>
+              <span>{whiteboard.accessRole === 'owner' ? 'Owner' : 'Collaborator'}</span>
+            </div>
           </div>
 
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            className="mt-3 h-auto border-none bg-transparent px-0 py-0 text-2xl font-semibold tracking-[-0.05em] text-white focus:border-none focus:bg-transparent focus:shadow-none sm:text-[2rem]"
-            readOnly={!canEdit}
-          />
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-white/70">
-              {whiteboard.accessRole === 'owner' ? 'Owner workspace' : 'Collaborator access'}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-white/70">
-              {scene.elements.length} elements
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-white/70">
-              {activeCollaborators.length} active
-            </span>
+          <div className="pointer-events-auto flex justify-center">
+            <WhiteboardToolbar
+              tool={tool}
+              canEdit={canEdit}
+              onToolChange={setTool}
+              onUploadImage={handleUploadRequested}
+            />
           </div>
 
-          <p className="mt-3 text-sm leading-6 text-white/45">
-            {canEdit
-              ? 'Use the top toolbar to draw, place shapes, add text, or insert images.'
-              : 'You can explore this board, export it, or duplicate it into your own workspace.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2">
-        <div className="pointer-events-auto">
-          <WhiteboardToolbar
-            tool={tool}
-            canEdit={canEdit}
-            zoom={viewport.zoom}
-            onToolChange={setTool}
-            onZoomIn={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom + 0.1),
-              }))
-            }
-            onZoomOut={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom - 0.1),
-              }))
-            }
-            onResetView={() => setViewport(defaultViewport)}
-            onUploadImage={handleUploadRequested}
-          />
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute right-4 top-4 z-20 w-full max-w-[320px]">
-        <div className="pointer-events-auto rounded-[24px] border border-white/12 bg-[#080808] px-4 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center">
-              {activeCollaborators.slice(0, 3).map((user, index) => (
-                <span
-                  key={user.id}
-                  className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.05] text-[11px] font-bold uppercase text-white first:ml-0"
-                  style={{ zIndex: activeCollaborators.length - index }}
-                  title={user.id === currentUserId ? `${user.name} (You)` : user.name}
-                >
-                  {user.name
-                    .split(' ')
-                    .map((part) => part[0] ?? '')
-                    .join('')
-                    .slice(0, 2)}
-                </span>
-              ))}
+          <div className="pointer-events-auto rounded-[24px] border border-white/12 bg-[#080808] px-4 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center">
+                {activeCollaborators.slice(0, 3).map((user, index) => (
+                  <span
+                    key={user.id}
+                    className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.05] text-[11px] font-bold uppercase text-white first:ml-0"
+                    style={{ zIndex: activeCollaborators.length - index }}
+                    title={user.id === currentUserId ? `${user.name} (You)` : user.name}
+                  >
+                    {user.name
+                      .split(' ')
+                      .map((part) => part[0] ?? '')
+                      .join('')
+                      .slice(0, 2)}
+                  </span>
+                ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Workspace
+                </p>
+                <p className="truncate text-sm font-medium text-white">
+                  {activeCollaborators.length} collaborator{activeCollaborators.length === 1 ? '' : 's'} live
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                className="rounded-[16px] px-3 py-2"
+                onClick={() => setIsCollaborationPanelOpen(true)}
+              >
+                People
+              </Button>
+              <Button
+                variant="ghost"
+                className="rounded-[16px] px-3 py-2"
+                onClick={() => router.push('/dashboard')}
+              >
+                Exit
+              </Button>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">
-                Workspace
-              </p>
-              <p className="truncate text-sm font-medium text-white">
-                {activeCollaborators.length} collaborator{activeCollaborators.length === 1 ? '' : 's'} live
-              </p>
-            </div>
-            <Button
-              variant="secondary"
-              className="rounded-[16px] px-3 py-2"
-              onClick={() => setIsCollaborationPanelOpen(true)}
-            >
-              People
-            </Button>
-            <Button
-              variant="ghost"
-              className="rounded-[16px] px-3 py-2"
-              onClick={() => router.push('/dashboard')}
-            >
-              Exit
-            </Button>
           </div>
         </div>
       </div>
 
       {selectedElements.length > 0 ? (
-        <div className="pointer-events-none absolute right-4 top-[96px] z-20 w-full max-w-[320px]">
+        <div className="pointer-events-none absolute right-4 top-[92px] z-20 w-full max-w-[320px]">
           <div className="pointer-events-auto max-h-[calc(100vh-14rem)] overflow-y-auto rounded-[24px] border border-white/12 bg-[#080808] p-4 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
             <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
@@ -1088,7 +1058,7 @@ export const CollaborativeEditor = ({
           </div>
         ) : null}
 
-        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 rounded-[24px] border border-white/12 bg-[#080808] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.38)]">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 rounded-[22px] border border-white/12 bg-[#080808] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.38)]">
           <Button variant="ghost" className="rounded-[16px] px-3 py-2" onClick={handleUndo} disabled={!canEdit || undoCount === 0}>
             Undo
           </Button>
@@ -1123,6 +1093,46 @@ export const CollaborativeEditor = ({
               Delete
             </Button>
           ) : null}
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-4 left-4 z-20">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-[22px] border border-white/12 bg-[#080808] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.38)]">
+          <Button
+            variant="ghost"
+            className="h-10 rounded-[16px] px-3"
+            onClick={() =>
+              setViewport((currentViewport) => ({
+                ...currentViewport,
+                zoom: clampViewportZoom(currentViewport.zoom - 0.1),
+              }))
+            }
+          >
+            -
+          </Button>
+          <span className="min-w-[54px] text-center text-[11px] font-semibold text-white/68">
+            {Math.round(viewport.zoom * 100)}%
+          </span>
+          <Button
+            variant="ghost"
+            className="h-10 rounded-[16px] px-3"
+            onClick={() =>
+              setViewport((currentViewport) => ({
+                ...currentViewport,
+                zoom: clampViewportZoom(currentViewport.zoom + 0.1),
+              }))
+            }
+          >
+            +
+          </Button>
+          <div className="h-6 w-px bg-white/10" />
+          <Button
+            variant="ghost"
+            className="h-10 rounded-[16px] px-3 text-[11px] uppercase tracking-[0.12em]"
+            onClick={() => setViewport(defaultViewport)}
+          >
+            Reset
+          </Button>
         </div>
       </div>
 
