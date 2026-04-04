@@ -62,7 +62,7 @@ export const WhiteboardToolbar = ({
   const editableTextElement = isTextEditableElement(selectedElement) ? selectedElement : null;
 
   return (
-    <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-[#07131d]/90 p-4 shadow-2xl shadow-black/20 backdrop-blur">
+    <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-[#0c0c0c]/92 p-4 shadow-2xl shadow-black/30 backdrop-blur">
       <div className="flex flex-wrap gap-2">
         {toolItems.map((item) => (
           <button

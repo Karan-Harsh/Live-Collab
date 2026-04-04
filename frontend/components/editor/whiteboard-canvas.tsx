@@ -668,7 +668,7 @@ export const WhiteboardCanvas = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-[80vh] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(6,6,6,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.4)]"
+      className="relative h-full min-h-[640px] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(6,6,6,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.4)]"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
