@@ -28,7 +28,7 @@ import {
 } from '@/lib/whiteboard-scene';
 import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime-service';
 import { createInvitation } from '@/services/invitation-service';
-import { deleteWhiteboard } from '@/services/whiteboard-service';
+import { createWhiteboard, deleteWhiteboard } from '@/services/whiteboard-service';
 
 import type {
   RealtimeCursorPresenceClearedPayload,
@@ -51,6 +51,11 @@ interface CollaborativeEditorProps {
   whiteboard: WhiteboardRecord;
   accessToken: string;
   currentUserId: string;
+}
+
+interface WhiteboardHistorySnapshot {
+  title: string;
+  content: string;
 }
 
 type ConnectionState = 'connecting' | 'live' | 'offline';
@@ -107,6 +112,34 @@ const loadImageFile = async (file: File): Promise<ImageElement> => {
   );
 };
 
+const isTextInputFocused = (): boolean => {
+  const activeElement = document.activeElement;
+
+  return (
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    activeElement instanceof HTMLButtonElement
+  );
+};
+
+const cloneSnapshot = (snapshot: WhiteboardHistorySnapshot): WhiteboardHistorySnapshot => ({
+  title: snapshot.title,
+  content: snapshot.content,
+});
+
+const downloadFile = (filename: string, content: string, type: string): void => {
+  const blob = new Blob([content], { type });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.click();
+
+  URL.revokeObjectURL(objectUrl);
+};
+
 export const CollaborativeEditor = ({
   whiteboard,
   accessToken,
@@ -116,14 +149,23 @@ export const CollaborativeEditor = ({
   const queryClient = useQueryClient();
   const socketRef = useRef<ReturnType<typeof getRealtimeSocket> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
   const cursorBroadcastTimerRef = useRef<number | null>(null);
+  const historyCaptureTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
+  const skipHistoryCaptureRef = useRef(true);
   const pendingCursorRef = useRef<ScenePoint | null>(null);
   const currentSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
   const lastBroadcastSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
   const currentTitleRef = useRef(whiteboard.title);
   const lastBroadcastTitleRef = useRef(whiteboard.title);
+  const historyBaseSnapshotRef = useRef<WhiteboardHistorySnapshot>({
+    title: whiteboard.title,
+    content: serializeScene(parseSceneFromContent(whiteboard.content)),
+  });
+  const undoStackRef = useRef<WhiteboardHistorySnapshot[]>([]);
+  const redoStackRef = useRef<WhiteboardHistorySnapshot[]>([]);
 
   const [title, setTitle] = useState(whiteboard.title);
   const [scene, setScene] = useState<WhiteboardScene>(() => parseSceneFromContent(whiteboard.content));
@@ -134,6 +176,7 @@ export const CollaborativeEditor = ({
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [activeUserIds, setActiveUserIds] = useState<string[]>([currentUserId]);
   const [remoteCursors, setRemoteCursors] = useState<RealtimeCursorPresencePayload[]>([]);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = whiteboard.permissions.canEdit;
@@ -164,6 +207,8 @@ export const CollaborativeEditor = ({
         y: cursor.cursor.y,
       }));
   }, [currentUserId, remoteCursors, whiteboard.collaborators, whiteboard.owner]);
+  const undoCount = historyVersion >= 0 ? undoStackRef.current.length : 0;
+  const redoCount = historyVersion >= 0 ? redoStackRef.current.length : 0;
 
   const inviteMutation = useMutation({
     mutationFn: (email: string) => createInvitation(whiteboard.id, email),
@@ -194,9 +239,30 @@ export const CollaborativeEditor = ({
     },
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: async () =>
+      createWhiteboard({
+        title: `${currentTitleRef.current} copy`,
+        content: serializeScene(currentSceneRef.current),
+      }),
+    onSuccess: async (createdWhiteboard) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['whiteboards'],
+      });
+      router.push(`/whiteboards/${createdWhiteboard.id}`);
+    },
+    onError: (mutationError) => {
+      setError(getErrorMessage(mutationError));
+    },
+  });
+
   useEffect(() => {
     setTitle(whiteboard.title);
     const parsedScene = parseSceneFromContent(whiteboard.content);
+    const snapshot = {
+      title: whiteboard.title,
+      content: serializeScene(parsedScene),
+    };
     setScene(parsedScene);
     setSelectedElementIds([]);
     setActiveUserIds([currentUserId]);
@@ -205,6 +271,11 @@ export const CollaborativeEditor = ({
     lastBroadcastSceneRef.current = parsedScene;
     currentTitleRef.current = whiteboard.title;
     lastBroadcastTitleRef.current = whiteboard.title;
+    historyBaseSnapshotRef.current = snapshot;
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    skipHistoryCaptureRef.current = true;
+    setHistoryVersion((currentVersion) => currentVersion + 1);
     suppressBroadcastRef.current = true;
   }, [currentUserId, whiteboard.content, whiteboard.title]);
 
@@ -215,6 +286,45 @@ export const CollaborativeEditor = ({
   useEffect(() => {
     currentTitleRef.current = title;
   }, [title]);
+
+  useEffect(() => {
+    const currentSnapshot = {
+      title,
+      content: serializedScene,
+    };
+
+    if (skipHistoryCaptureRef.current) {
+      historyBaseSnapshotRef.current = cloneSnapshot(currentSnapshot);
+      skipHistoryCaptureRef.current = false;
+      return;
+    }
+
+    if (historyCaptureTimerRef.current !== null) {
+      window.clearTimeout(historyCaptureTimerRef.current);
+    }
+
+    historyCaptureTimerRef.current = window.setTimeout(() => {
+      const previousSnapshot = historyBaseSnapshotRef.current;
+
+      if (
+        previousSnapshot.title === currentSnapshot.title &&
+        previousSnapshot.content === currentSnapshot.content
+      ) {
+        return;
+      }
+
+      undoStackRef.current = [...undoStackRef.current, cloneSnapshot(previousSnapshot)].slice(-75);
+      redoStackRef.current = [];
+      historyBaseSnapshotRef.current = cloneSnapshot(currentSnapshot);
+      setHistoryVersion((currentVersion) => currentVersion + 1);
+    }, 220);
+
+    return () => {
+      if (historyCaptureTimerRef.current !== null) {
+        window.clearTimeout(historyCaptureTimerRef.current);
+      }
+    };
+  }, [serializedScene, title]);
 
   useEffect(() => {
     const socket = getRealtimeSocket(accessToken);
@@ -239,9 +349,14 @@ export const CollaborativeEditor = ({
       suppressBroadcastRef.current = true;
 
       if (payload.title !== undefined) {
+        skipHistoryCaptureRef.current = true;
         setTitle(payload.title);
         currentTitleRef.current = payload.title;
         lastBroadcastTitleRef.current = payload.title;
+        historyBaseSnapshotRef.current = {
+          title: payload.title,
+          content: serializeScene(currentSceneRef.current),
+        };
       }
 
       if (payload.content !== undefined) {
@@ -250,9 +365,14 @@ export const CollaborativeEditor = ({
           ? mergeScenes(currentSceneRef.current, remoteScene, payload.changes)
           : remoteScene;
 
+        skipHistoryCaptureRef.current = true;
         setScene(mergedScene);
         currentSceneRef.current = mergedScene;
         lastBroadcastSceneRef.current = mergedScene;
+        historyBaseSnapshotRef.current = {
+          title: payload.title ?? currentTitleRef.current,
+          content: serializeScene(mergedScene),
+        };
         setSelectedElementIds([]);
       }
 
@@ -307,6 +427,7 @@ export const CollaborativeEditor = ({
       suppressBroadcastRef.current = true;
       setTitle(response.title);
       const joinedScene = parseSceneFromContent(response.content);
+      skipHistoryCaptureRef.current = true;
       setScene(joinedScene);
       setActiveUserIds(response.activeUserIds);
       setRemoteCursors(response.activeCursors.filter((cursor) => cursor.userId !== currentUserId));
@@ -407,13 +528,187 @@ export const CollaborativeEditor = ({
     cursorBroadcastTimerRef.current = window.setTimeout(flushCursorPresence, 48);
   };
 
+  const handleExportJson = (): void => {
+    const payload = JSON.stringify(
+      {
+        title: currentTitleRef.current,
+        exportedAt: new Date().toISOString(),
+        scene: currentSceneRef.current,
+      },
+      null,
+      2,
+    );
+
+    downloadFile(
+      `${currentTitleRef.current.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'whiteboard'}.json`,
+      payload,
+      'application/json',
+    );
+  };
+
+  const handleImportRequested = (): void => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportJson = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0];
+
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const rawContent = await file.text();
+      const parsedContent = JSON.parse(rawContent) as unknown;
+      const importedObject = parsedContent as { title?: string; scene?: unknown };
+      const importedTitle =
+        typeof importedObject.title === 'string' && importedObject.title.trim().length > 0
+          ? importedObject.title.trim()
+          : `${currentTitleRef.current} imported`;
+      const importedScene = parseSceneFromContent(
+        JSON.stringify(importedObject.scene ?? parsedContent),
+      );
+      const importedContent = serializeScene(importedScene);
+
+      undoStackRef.current = [];
+      redoStackRef.current = [];
+      applyHistorySnapshot({
+        title: importedTitle,
+        content: importedContent,
+      });
+      setTool('select');
+      setError(null);
+    } catch (importError) {
+      setError(getErrorMessage(importError));
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (cursorBroadcastTimerRef.current !== null) {
         window.clearTimeout(cursorBroadcastTimerRef.current);
       }
+      if (historyCaptureTimerRef.current !== null) {
+        window.clearTimeout(historyCaptureTimerRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+
+      if (isModifierPressed && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+
+        return;
+      }
+
+      if (isModifierPressed && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      if (isTextInputFocused()) {
+        return;
+      }
+
+      if (isModifierPressed && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        setSelectedElementIds(currentSceneRef.current.elements.map((element) => element.id));
+        return;
+      }
+
+      const nextTool = (() => {
+        switch (event.key.toLowerCase()) {
+          case 'v':
+            return 'select';
+          case 'h':
+            return 'hand';
+          case 'd':
+            return 'draw';
+          case 'r':
+            return 'rectangle';
+          case 'o':
+            return 'ellipse';
+          case 'a':
+            return 'arrow';
+          case 'n':
+            return 'note';
+          case 't':
+            return 'text';
+          default:
+            return null;
+        }
+      })();
+
+      if (nextTool) {
+        event.preventDefault();
+        setTool(nextTool);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const applyHistorySnapshot = (snapshot: WhiteboardHistorySnapshot): void => {
+    if (historyCaptureTimerRef.current !== null) {
+      window.clearTimeout(historyCaptureTimerRef.current);
+    }
+
+    const nextScene = parseSceneFromContent(snapshot.content);
+
+    skipHistoryCaptureRef.current = true;
+    suppressBroadcastRef.current = false;
+    historyBaseSnapshotRef.current = cloneSnapshot(snapshot);
+    currentSceneRef.current = nextScene;
+    lastBroadcastSceneRef.current = nextScene;
+    currentTitleRef.current = snapshot.title;
+    lastBroadcastTitleRef.current = snapshot.title;
+    setTitle(snapshot.title);
+    setScene(nextScene);
+    setSelectedElementIds([]);
+    setHistoryVersion((currentVersion) => currentVersion + 1);
+  };
+
+  const handleUndo = (): void => {
+    const previousSnapshot = undoStackRef.current.at(-1);
+
+    if (!previousSnapshot) {
+      return;
+    }
+
+    const currentSnapshot = historyBaseSnapshotRef.current;
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    redoStackRef.current = [...redoStackRef.current, cloneSnapshot(currentSnapshot)].slice(-75);
+    applyHistorySnapshot(previousSnapshot);
+  };
+
+  const handleRedo = (): void => {
+    const nextSnapshot = redoStackRef.current.at(-1);
+
+    if (!nextSnapshot) {
+      return;
+    }
+
+    const currentSnapshot = historyBaseSnapshotRef.current;
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    undoStackRef.current = [...undoStackRef.current, cloneSnapshot(currentSnapshot)].slice(-75);
+    applyHistorySnapshot(nextSnapshot);
+  };
 
   const connectionTone = useMemo(() => {
     if (connectionState === 'live') {
@@ -565,6 +860,15 @@ export const CollaborativeEditor = ({
           void handleImagePicked(event);
         }}
       />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(event) => {
+          void handleImportJson(event);
+        }}
+      />
 
       <div className="flex flex-col gap-4 rounded-[30px] border border-white/10 bg-panel/80 p-5 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-3">
@@ -602,9 +906,35 @@ export const CollaborativeEditor = ({
               </div>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`V` Select</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`D` Draw</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`A` Arrow</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`T` Text</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`Cmd/Ctrl+Z` Undo</span>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" onClick={handleUndo} disabled={!canEdit || undoCount === 0}>
+            Undo
+          </Button>
+          <Button variant="ghost" onClick={handleRedo} disabled={!canEdit || redoCount === 0}>
+            Redo
+          </Button>
+          <Button variant="ghost" onClick={handleExportJson}>
+            Export JSON
+          </Button>
+          <Button variant="ghost" onClick={handleImportRequested} disabled={!canEdit}>
+            Import JSON
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => duplicateMutation.mutate()}
+            disabled={duplicateMutation.isPending}
+          >
+            {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate board'}
+          </Button>
           <Button variant="secondary" onClick={() => router.push('/dashboard')}>
             Back to dashboard
           </Button>
