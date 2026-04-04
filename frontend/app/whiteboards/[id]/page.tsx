@@ -8,7 +8,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { AppShell } from '@/components/app-shell';
 import { RouteGuard } from '@/components/auth/route-guard';
 import { CollaborativeEditor } from '@/components/editor/collaborative-editor';
-import { Badge } from '@/components/ui/badge';
 import { getErrorMessage } from '@/lib/error';
 import { getCurrentUser } from '@/services/auth-service';
 import { useAuthStore } from '@/services/auth-store';
@@ -46,7 +45,7 @@ const WhiteboardPage = () => {
   return (
     <RouteGuard mode="protected">
       <AppShell immersive hideHeader>
-        <div className="min-h-screen bg-[linear-gradient(180deg,#050505_0%,#090909_100%)] px-3 py-3 sm:px-4 sm:py-4">
+        <div className="min-h-screen bg-[linear-gradient(180deg,#050505_0%,#090909_100%)] px-2 py-2 sm:px-3 sm:py-3">
           {whiteboardQuery.isLoading ? (
             <div className="h-[94vh] animate-pulse rounded-[32px] border border-white/10 bg-white/5" />
           ) : whiteboardQuery.error ? (

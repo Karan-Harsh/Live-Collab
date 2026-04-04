@@ -55,7 +55,6 @@ interface WhiteboardCanvasProps {
   onSceneChange: (scene: WhiteboardScene) => void;
   onSelectElements: (elementIds: string[]) => void;
   onViewportChange: (viewport: ViewportState) => void;
-  onElementDoubleClick: (element: WhiteboardElement) => void;
   onCursorActivity: (point: ScenePoint | null) => void;
 }
 
@@ -320,7 +319,6 @@ export const WhiteboardCanvas = ({
   onSceneChange,
   onSelectElements,
   onViewportChange,
-  onElementDoubleClick,
   onCursorActivity,
 }: WhiteboardCanvasProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -668,7 +666,7 @@ export const WhiteboardCanvas = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-full min-h-[640px] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(6,6,6,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.4)]"
+      className="relative h-full min-h-[640px] overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.99),rgba(5,5,5,0.99))] shadow-[0_28px_90px_rgba(0,0,0,0.4)]"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -741,36 +739,21 @@ export const WhiteboardCanvas = ({
         </g>
       </svg>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur">
-        {tool === 'hand'
-          ? 'Hand tool active'
-          : tool === 'select'
-            ? 'Select, shift-select, and drag elements'
+      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur">
+        {tool === 'select'
+          ? 'Shift to multi-select. Cmd/Ctrl + scroll to zoom.'
+          : tool === 'hand'
+            ? 'Drag to pan across the board.'
             : tool === 'draw'
-              ? 'Freehand drawing'
-              : tool === 'note'
-                ? 'Click to drop a note'
-                : tool === 'text'
-                  ? 'Click to place a text block'
+              ? 'Drag to draw.'
+              : tool === 'text'
+                ? 'Click to place text.'
+                : tool === 'note'
+                  ? 'Click to drop a note.'
                   : tool === 'arrow'
-                    ? 'Drag to connect with an arrow'
-                    : 'Drag to place a shape'}
+                    ? 'Drag to place an arrow.'
+                    : 'Drag to place a shape.'}
       </div>
-
-      <div className="pointer-events-none absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur">
-        Hold `Shift` to multi-select, or `Ctrl` / `Cmd` and scroll to zoom
-      </div>
-
-      {selectedElements.length === 1 &&
-      (selectedElements[0]?.type === 'note' || selectedElements[0]?.type === 'text') ? (
-        <button
-          type="button"
-          className="absolute left-4 top-4 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-white/15"
-          onClick={() => onElementDoubleClick(selectedElements[0])}
-        >
-          Edit selected {selectedElements[0].type}
-        </button>
-      ) : null}
     </div>
   );
 };

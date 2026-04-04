@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CollaborationPanel } from '@/components/editor/collaboration-panel';
 import { WhiteboardCanvas } from '@/components/editor/whiteboard-canvas';
 import { WhiteboardToolbar } from '@/components/editor/whiteboard-toolbar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getErrorMessage } from '@/lib/error';
@@ -41,7 +40,6 @@ import type {
   ImageElement,
   ScenePoint,
   ViewportState,
-  WhiteboardElement,
   WhiteboardScene,
   WhiteboardTool,
 } from '@/lib/whiteboard-scene';
@@ -711,16 +709,28 @@ export const CollaborativeEditor = ({
     applyHistorySnapshot(nextSnapshot);
   };
 
-  const connectionTone = useMemo(() => {
+  const connectionMeta = useMemo(() => {
     if (connectionState === 'live') {
-      return 'border-white/15 bg-white/[0.08] text-white';
+      return {
+        label: 'Realtime connected',
+        dotClassName: 'bg-white',
+        textClassName: 'text-white/78',
+      };
     }
 
     if (connectionState === 'connecting') {
-      return 'border-white/10 bg-white/[0.05] text-white/75';
+      return {
+        label: 'Connecting',
+        dotClassName: 'bg-white/55',
+        textClassName: 'text-white/58',
+      };
     }
 
-    return 'border-white/10 bg-white/[0.04] text-white/60';
+    return {
+      label: 'Offline',
+      dotClassName: 'bg-white/30',
+      textClassName: 'text-white/45',
+    };
   }, [connectionState]);
 
   const syncLabel =
@@ -844,14 +854,8 @@ export const CollaborativeEditor = ({
     }
   };
 
-  const handleElementDoubleClick = (element: WhiteboardElement): void => {
-    if (element.type === 'note' || element.type === 'text') {
-      handleEditSelectedNote();
-    }
-  };
-
   return (
-    <div className="relative h-[calc(100vh-1.5rem)] min-h-[760px]">
+    <div className="relative h-[calc(100vh-0.75rem)] min-h-[760px]">
       <input
         ref={imageInputRef}
         type="file"
@@ -881,120 +885,70 @@ export const CollaborativeEditor = ({
         onSceneChange={setScene}
         onSelectElements={setSelectedElementIds}
         onViewportChange={setViewport}
-        onElementDoubleClick={handleElementDoubleClick}
         onCursorActivity={handleCursorActivity}
       />
 
-      <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex flex-col gap-3">
-        <div className="pointer-events-auto flex flex-col gap-3 rounded-[26px] border border-white/10 bg-[#0c0c0c]/90 p-3 backdrop-blur xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className={connectionTone}>
-                {connectionState === 'live'
-                  ? 'Realtime connected'
-                  : connectionState === 'connecting'
-                    ? 'Connecting...'
-                    : 'Realtime offline'}
-              </Badge>
-              <Badge>{syncLabel}</Badge>
-              <Badge>{scene.elements.length} elements</Badge>
-              <Badge>{activeCollaborators.length} active</Badge>
-              <Badge>{whiteboard.accessRole === 'owner' ? 'Owner' : 'Collaborator'}</Badge>
-            </div>
-
-            <div className="mt-3 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="min-w-0 flex-1">
-                <Input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  className="h-11 border-none bg-transparent px-0 text-xl font-semibold tracking-[-0.04em] focus:border-none focus:bg-transparent focus:shadow-none sm:text-2xl"
-                  readOnly={!canEdit}
-                />
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`V` Select</span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`D` Draw</span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`A` Arrow</span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`T` Text</span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`Cmd/Ctrl+Z` Undo</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                {activeCollaborators.slice(0, 3).map((user) => (
-                  <div
-                    key={user.id}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-200"
-                  >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-[10px] font-bold uppercase text-white">
-                      {user.name
-                        .split(' ')
-                        .map((part) => part[0] ?? '')
-                        .join('')
-                        .slice(0, 2)}
-                    </span>
-                    <span>{user.id === currentUserId ? `${user.name} (You)` : user.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex items-start justify-between gap-4">
+        <div className="pointer-events-auto w-full max-w-[360px] rounded-[28px] border border-white/10 bg-[#0b0b0b]/90 px-4 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.36)] backdrop-blur">
+          <div className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] ${connectionMeta.textClassName}`}>
+            <span className={`h-2 w-2 rounded-full ${connectionMeta.dotClassName}`} />
+            <span>{connectionMeta.label}</span>
+            <span className="h-1 w-1 rounded-full bg-white/12" />
+            <span>{syncLabel}</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:ml-4 xl:w-[360px] xl:justify-end">
-            <Button variant="ghost" onClick={handleUndo} disabled={!canEdit || undoCount === 0}>
-              Undo
-            </Button>
-            <Button variant="ghost" onClick={handleRedo} disabled={!canEdit || redoCount === 0}>
-              Redo
-            </Button>
-            <Button variant="ghost" onClick={handleExportJson}>
-              Export
-            </Button>
-            <Button variant="ghost" onClick={handleImportRequested} disabled={!canEdit}>
-              Import
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => duplicateMutation.mutate()}
-              disabled={duplicateMutation.isPending}
-            >
-              {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate'}
-            </Button>
-            <Button variant="secondary" onClick={() => setIsCollaborationPanelOpen(true)}>
-              People
-            </Button>
-            <Button variant="secondary" onClick={() => router.push('/dashboard')}>
-              Exit
-            </Button>
-            {canDelete ? (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (window.confirm('Delete this whiteboard permanently?')) {
-                    deleteMutation.mutate();
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            ) : null}
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="mt-3 h-auto border-none bg-transparent px-0 py-0 text-2xl font-semibold tracking-[-0.05em] text-white focus:border-none focus:bg-transparent focus:shadow-none sm:text-[2rem]"
+            readOnly={!canEdit}
+          />
+
+          <div className="mt-3 flex items-center gap-2 text-xs text-white/38">
+            <span>{whiteboard.accessRole === 'owner' ? 'Owner workspace' : 'Collaborator access'}</span>
+            <span>&bull;</span>
+            <span>{scene.elements.length} elements</span>
           </div>
         </div>
 
-        {error ? (
-          <div className="pointer-events-auto max-w-xl rounded-2xl border border-white/10 bg-black/85 px-4 py-3 text-sm text-white shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-            {error}
+        <div className="pointer-events-auto flex flex-col items-end gap-3">
+          <div className="flex items-center gap-2 rounded-[24px] border border-white/10 bg-[#0b0b0b]/88 px-3 py-2 shadow-[0_22px_80px_rgba(0,0,0,0.32)] backdrop-blur">
+            <div className="flex items-center">
+              {activeCollaborators.slice(0, 3).map((user, index) => (
+                <span
+                  key={user.id}
+                  className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.05] text-[11px] font-bold uppercase text-white first:ml-0"
+                  style={{ zIndex: activeCollaborators.length - index }}
+                  title={user.id === currentUserId ? `${user.name} (You)` : user.name}
+                >
+                  {user.name
+                    .split(' ')
+                    .map((part) => part[0] ?? '')
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+              ))}
+            </div>
+            <div className="pr-1 text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
+                Active
+              </p>
+              <p className="text-sm font-medium text-white">
+                {activeCollaborators.length} collaborator{activeCollaborators.length === 1 ? '' : 's'}
+              </p>
+            </div>
+            <Button variant="secondary" className="rounded-[18px] px-3 py-2" onClick={() => setIsCollaborationPanelOpen(true)}>
+              People
+            </Button>
+            <Button variant="ghost" className="rounded-[18px] px-3 py-2" onClick={() => router.push('/dashboard')}>
+              Exit
+            </Button>
           </div>
-        ) : null}
-
-        {!canEdit ? (
-          <div className="pointer-events-auto max-w-xl rounded-2xl border border-white/10 bg-black/85 px-4 py-3 text-sm text-white/80 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-            Your access is view-only. You can navigate the board, export it, or duplicate it into your own workspace.
-          </div>
-        ) : null}
+        </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-y-3 left-3 z-20 flex items-center">
-        <div className="pointer-events-auto max-h-[calc(100vh-9rem)] w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto">
+      <div className="pointer-events-none absolute left-4 top-24 z-20">
+        <div className="pointer-events-auto max-h-[calc(100vh-11rem)] max-w-[calc(100vw-2rem)] overflow-y-auto">
           <WhiteboardToolbar
             tool={tool}
             canEdit={canEdit}
@@ -1022,6 +976,57 @@ export const CollaborativeEditor = ({
             onBringToFront={handleBringToFront}
             onSendToBack={handleSendToBack}
           />
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-4 right-4 z-20 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3">
+        {error ? (
+          <div className="pointer-events-auto max-w-md rounded-[22px] border border-white/10 bg-black/88 px-4 py-3 text-sm text-white shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+            {error}
+          </div>
+        ) : null}
+
+        {!canEdit ? (
+          <div className="pointer-events-auto max-w-md rounded-[22px] border border-white/10 bg-black/88 px-4 py-3 text-sm text-white/75 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+            View only. You can navigate, export, or duplicate this board into your own workspace.
+          </div>
+        ) : null}
+
+        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 rounded-[24px] border border-white/10 bg-[#0b0b0b]/90 p-2 shadow-[0_24px_90px_rgba(0,0,0,0.38)] backdrop-blur">
+          <Button variant="ghost" className="rounded-[16px] px-3 py-2" onClick={handleUndo} disabled={!canEdit || undoCount === 0}>
+            Undo
+          </Button>
+          <Button variant="ghost" className="rounded-[16px] px-3 py-2" onClick={handleRedo} disabled={!canEdit || redoCount === 0}>
+            Redo
+          </Button>
+          <Button variant="ghost" className="rounded-[16px] px-3 py-2" onClick={handleExportJson}>
+            Export
+          </Button>
+          <Button variant="ghost" className="rounded-[16px] px-3 py-2" onClick={handleImportRequested} disabled={!canEdit}>
+            Import
+          </Button>
+          <div className="mx-1 hidden h-6 w-px bg-white/10 sm:block" />
+          <Button
+            variant="secondary"
+            className="rounded-[16px] px-3 py-2"
+            onClick={() => duplicateMutation.mutate()}
+            disabled={duplicateMutation.isPending}
+          >
+            {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate'}
+          </Button>
+          {canDelete ? (
+            <Button
+              variant="danger"
+              className="rounded-[16px] px-3 py-2"
+              onClick={() => {
+                if (window.confirm('Delete this whiteboard permanently?')) {
+                  deleteMutation.mutate();
+                }
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
         </div>
       </div>
 
