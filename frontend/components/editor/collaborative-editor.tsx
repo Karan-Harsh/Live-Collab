@@ -31,12 +31,15 @@ import { createInvitation } from '@/services/invitation-service';
 import { deleteWhiteboard } from '@/services/whiteboard-service';
 
 import type {
+  RealtimeCursorPresenceClearedPayload,
+  RealtimeCursorPresencePayload,
   RealtimePresenceUpdatedPayload,
   RealtimeReceiveChangesPayload,
   WhiteboardRecord,
 } from '@/lib/types';
 import type {
   ImageElement,
+  ScenePoint,
   ViewportState,
   WhiteboardElement,
   WhiteboardScene,
@@ -57,6 +60,13 @@ const defaultViewport: ViewportState = {
   x: 0,
   y: 0,
   zoom: 0.72,
+};
+
+const cursorPalette = ['#5eead4', '#f97316', '#f472b6', '#60a5fa', '#facc15', '#34d399'];
+
+const getCursorColor = (userId: string): string => {
+  const total = Array.from(userId).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return cursorPalette[total % cursorPalette.length] ?? '#5eead4';
 };
 
 const loadImageFile = async (file: File): Promise<ImageElement> => {
@@ -107,7 +117,9 @@ export const CollaborativeEditor = ({
   const socketRef = useRef<ReturnType<typeof getRealtimeSocket> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
+  const cursorBroadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
+  const pendingCursorRef = useRef<ScenePoint | null>(null);
   const currentSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
   const lastBroadcastSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
   const currentTitleRef = useRef(whiteboard.title);
@@ -121,6 +133,7 @@ export const CollaborativeEditor = ({
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [activeUserIds, setActiveUserIds] = useState<string[]>([currentUserId]);
+  const [remoteCursors, setRemoteCursors] = useState<RealtimeCursorPresencePayload[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = whiteboard.permissions.canEdit;
@@ -137,6 +150,20 @@ export const CollaborativeEditor = ({
       .map((userId) => uniqueUsers.get(userId))
       .filter((user): user is (typeof knownUsers)[number] => Boolean(user));
   }, [activeUserIds, whiteboard.collaborators, whiteboard.owner]);
+  const renderedRemoteCursors = useMemo(() => {
+    const knownUsers = [whiteboard.owner, ...whiteboard.collaborators.map((collaborator) => collaborator.user)];
+    const uniqueUsers = new Map(knownUsers.map((user) => [user.id, user]));
+
+    return remoteCursors
+      .filter((cursor) => cursor.userId !== currentUserId)
+      .map((cursor) => ({
+        userId: cursor.userId,
+        name: uniqueUsers.get(cursor.userId)?.name ?? 'Collaborator',
+        color: getCursorColor(cursor.userId),
+        x: cursor.cursor.x,
+        y: cursor.cursor.y,
+      }));
+  }, [currentUserId, remoteCursors, whiteboard.collaborators, whiteboard.owner]);
 
   const inviteMutation = useMutation({
     mutationFn: (email: string) => createInvitation(whiteboard.id, email),
@@ -173,6 +200,7 @@ export const CollaborativeEditor = ({
     setScene(parsedScene);
     setSelectedElementIds([]);
     setActiveUserIds([currentUserId]);
+    setRemoteCursors([]);
     currentSceneRef.current = parsedScene;
     lastBroadcastSceneRef.current = parsedScene;
     currentTitleRef.current = whiteboard.title;
@@ -200,6 +228,7 @@ export const CollaborativeEditor = ({
     const handleDisconnect = (): void => {
       setConnectionState('offline');
       setActiveUserIds([currentUserId]);
+      setRemoteCursors([]);
     };
 
     const handleReceiveChanges = (payload: RealtimeReceiveChangesPayload): void => {
@@ -239,10 +268,34 @@ export const CollaborativeEditor = ({
       setActiveUserIds(payload.activeUserIds);
     };
 
+    const handleCursorPresenceUpdated = (payload: RealtimeCursorPresencePayload): void => {
+      if (payload.whiteboardId !== whiteboard.id || payload.userId === currentUserId) {
+        return;
+      }
+
+      setRemoteCursors((currentCursors) => {
+        const nextCursors = currentCursors.filter((cursor) => cursor.userId !== payload.userId);
+        nextCursors.push(payload);
+        return nextCursors;
+      });
+    };
+
+    const handleCursorPresenceCleared = (payload: RealtimeCursorPresenceClearedPayload): void => {
+      if (payload.whiteboardId !== whiteboard.id) {
+        return;
+      }
+
+      setRemoteCursors((currentCursors) =>
+        currentCursors.filter((cursor) => cursor.userId !== payload.userId),
+      );
+    };
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('receive_changes', handleReceiveChanges);
     socket.on('presence_updated', handlePresenceUpdated);
+    socket.on('cursor_presence_updated', handleCursorPresenceUpdated);
+    socket.on('cursor_presence_cleared', handleCursorPresenceCleared);
 
     socket.connect();
     socket.emit('join_whiteboard', { whiteboardId: whiteboard.id }, (response) => {
@@ -256,6 +309,7 @@ export const CollaborativeEditor = ({
       const joinedScene = parseSceneFromContent(response.content);
       setScene(joinedScene);
       setActiveUserIds(response.activeUserIds);
+      setRemoteCursors(response.activeCursors.filter((cursor) => cursor.userId !== currentUserId));
       currentSceneRef.current = joinedScene;
       lastBroadcastSceneRef.current = joinedScene;
       currentTitleRef.current = response.title;
@@ -269,6 +323,8 @@ export const CollaborativeEditor = ({
       socket.off('disconnect', handleDisconnect);
       socket.off('receive_changes', handleReceiveChanges);
       socket.off('presence_updated', handlePresenceUpdated);
+      socket.off('cursor_presence_updated', handleCursorPresenceUpdated);
+      socket.off('cursor_presence_cleared', handleCursorPresenceCleared);
       socket.disconnect();
       disconnectRealtimeSocket();
     };
@@ -327,6 +383,37 @@ export const CollaborativeEditor = ({
       }
     };
   }, [canEdit, scene, serializedScene, title, tool, whiteboard.id]);
+
+  const flushCursorPresence = (): void => {
+    cursorBroadcastTimerRef.current = null;
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      return;
+    }
+
+    socketRef.current.emit('update_cursor', {
+      whiteboardId: whiteboard.id,
+      cursor: pendingCursorRef.current,
+    });
+  };
+
+  const handleCursorActivity = (point: ScenePoint | null): void => {
+    pendingCursorRef.current = point;
+
+    if (cursorBroadcastTimerRef.current !== null) {
+      return;
+    }
+
+    cursorBroadcastTimerRef.current = window.setTimeout(flushCursorPresence, 48);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (cursorBroadcastTimerRef.current !== null) {
+        window.clearTimeout(cursorBroadcastTimerRef.current);
+      }
+    };
+  }, []);
 
   const connectionTone = useMemo(() => {
     if (connectionState === 'live') {
@@ -594,11 +681,13 @@ export const CollaborativeEditor = ({
             canEdit={canEdit}
             tool={tool}
             selectedElementIds={selectedElementIds}
+            remoteCursors={renderedRemoteCursors}
             viewport={viewport}
             onSceneChange={setScene}
             onSelectElements={setSelectedElementIds}
             onViewportChange={setViewport}
             onElementDoubleClick={handleElementDoubleClick}
+            onCursorActivity={handleCursorActivity}
           />
         </div>
 

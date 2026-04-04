@@ -89,12 +89,29 @@ export interface RealtimePresenceUpdatedPayload {
   timestamp: string;
 }
 
+export interface RealtimeCursorPresencePayload {
+  userId: string;
+  whiteboardId: string;
+  cursor: {
+    x: number;
+    y: number;
+  };
+  timestamp: string;
+}
+
+export interface RealtimeCursorPresenceClearedPayload {
+  whiteboardId: string;
+  userId: string;
+  timestamp: string;
+}
+
 export interface RealtimeJoinResponse {
   whiteboardId: string;
   title: string;
   content: string;
   ownerId: string;
   activeUserIds: string[];
+  activeCursors: RealtimeCursorPresencePayload[];
   accessRole: 'owner' | 'collaborator';
   permissions: WhiteboardPermissions;
 }

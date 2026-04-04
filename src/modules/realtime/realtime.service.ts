@@ -5,7 +5,7 @@ import { env } from '../../config/env';
 import { whiteboardRepository } from '../whiteboard/whiteboard.repository';
 import { whiteboardService } from '../whiteboard/whiteboard.service';
 
-import type { SendChangesPayload } from './realtime.types';
+import type { CursorPresencePayload, SendChangesPayload } from './realtime.types';
 import type { WhiteboardRecord } from '../whiteboard/whiteboard.select';
 import type { Prisma } from '@prisma/client';
 
@@ -27,6 +27,7 @@ export class RealtimeService {
   private readonly whiteboardBuffers = new Map<string, BufferedWhiteboardState>();
   private readonly socketWhiteboards = new Map<string, Set<string>>();
   private readonly whiteboardPresence = new Map<string, Map<string, number>>();
+  private readonly whiteboardCursors = new Map<string, Map<string, CursorPresencePayload>>();
 
   constructor(
     private readonly persistence: WhiteboardPersistenceGateway = whiteboardRepository,
@@ -70,6 +71,47 @@ export class RealtimeService {
     this.scheduleFlush(payload.whiteboardId);
   }
 
+  async updateCursorPresence(
+    requesterId: string,
+    socketId: string,
+    whiteboardId: string,
+    cursor: { x: number; y: number } | null,
+  ): Promise<CursorPresencePayload | null> {
+    await this.getAccessibleWhiteboard(whiteboardId, requesterId);
+
+    const socketWhiteboards = this.socketWhiteboards.get(socketId);
+
+    if (!socketWhiteboards?.has(whiteboardId)) {
+      throw createHttpError(400, 'Join the whiteboard before sending cursor updates.');
+    }
+
+    const whiteboardCursors = this.whiteboardCursors.get(whiteboardId) ?? new Map<string, CursorPresencePayload>();
+
+    if (!cursor) {
+      whiteboardCursors.delete(socketId);
+
+      if (whiteboardCursors.size === 0) {
+        this.whiteboardCursors.delete(whiteboardId);
+      } else {
+        this.whiteboardCursors.set(whiteboardId, whiteboardCursors);
+      }
+
+      return null;
+    }
+
+    const cursorPayload: CursorPresencePayload = {
+      userId: requesterId,
+      whiteboardId,
+      cursor,
+      timestamp: new Date().toISOString(),
+    };
+
+    whiteboardCursors.set(socketId, cursorPayload);
+    this.whiteboardCursors.set(whiteboardId, whiteboardCursors);
+
+    return cursorPayload;
+  }
+
   trackSocketWhiteboard(socketId: string, whiteboardId: string, userId: string): string[] {
     const activeWhiteboards = this.socketWhiteboards.get(socketId) ?? new Set<string>();
     activeWhiteboards.add(whiteboardId);
@@ -111,7 +153,16 @@ export class RealtimeService {
 
     if (activeUsers.size === 0) {
       this.whiteboardPresence.delete(whiteboardId);
-      return [];
+    }
+
+    const whiteboardCursors = this.whiteboardCursors.get(whiteboardId);
+
+    if (whiteboardCursors) {
+      whiteboardCursors.delete(socketId);
+
+      if (whiteboardCursors.size === 0) {
+        this.whiteboardCursors.delete(whiteboardId);
+      }
     }
 
     return Array.from(activeUsers.keys());
@@ -208,6 +259,23 @@ export class RealtimeService {
 
   getActiveUserIds(whiteboardId: string): string[] {
     return Array.from(this.whiteboardPresence.get(whiteboardId)?.keys() ?? []);
+  }
+
+  getActiveCursors(whiteboardId: string): CursorPresencePayload[] {
+    const latestCursorsByUser = new Map<string, CursorPresencePayload>();
+
+    for (const cursorPayload of this.whiteboardCursors.get(whiteboardId)?.values() ?? []) {
+      const existingCursor = latestCursorsByUser.get(cursorPayload.userId);
+
+      if (
+        !existingCursor ||
+        Date.parse(existingCursor.timestamp) <= Date.parse(cursorPayload.timestamp)
+      ) {
+        latestCursorsByUser.set(cursorPayload.userId, cursorPayload);
+      }
+    }
+
+    return Array.from(latestCursorsByUser.values());
   }
 
   private async flushWhiteboard(whiteboardId: string): Promise<void> {

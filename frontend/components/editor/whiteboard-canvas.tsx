@@ -44,11 +44,19 @@ interface WhiteboardCanvasProps {
   canEdit: boolean;
   tool: WhiteboardTool;
   selectedElementIds: string[];
+  remoteCursors: Array<{
+    userId: string;
+    name: string;
+    color: string;
+    x: number;
+    y: number;
+  }>;
   viewport: ViewportState;
   onSceneChange: (scene: WhiteboardScene) => void;
   onSelectElements: (elementIds: string[]) => void;
   onViewportChange: (viewport: ViewportState) => void;
   onElementDoubleClick: (element: WhiteboardElement) => void;
+  onCursorActivity: (point: ScenePoint | null) => void;
 }
 
 type DraftState =
@@ -307,11 +315,13 @@ export const WhiteboardCanvas = ({
   canEdit,
   tool,
   selectedElementIds,
+  remoteCursors,
   viewport,
   onSceneChange,
   onSelectElements,
   onViewportChange,
   onElementDoubleClick,
+  onCursorActivity,
 }: WhiteboardCanvasProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({
@@ -419,6 +429,7 @@ export const WhiteboardCanvas = ({
     event.currentTarget.setPointerCapture(event.pointerId);
 
     const point = roundPoint(pointResult.point);
+    onCursorActivity(point);
     const hitElement = getTopmostElementAtPoint(scene, point);
     const resizeHandle = getResizeHandleFromTarget(event.target);
 
@@ -523,6 +534,15 @@ export const WhiteboardCanvas = ({
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const pointResult = getScenePoint(event.clientX, event.clientY);
+
+    if (!pointResult) {
+      return;
+    }
+
+    const point = roundPoint(pointResult.point);
+    onCursorActivity(point);
+
     if (!draft) {
       return;
     }
@@ -535,14 +555,6 @@ export const WhiteboardCanvas = ({
       });
       return;
     }
-
-    const pointResult = getScenePoint(event.clientX, event.clientY);
-
-    if (!pointResult) {
-      return;
-    }
-
-    const point = roundPoint(pointResult.point);
 
     if (draft.kind === 'shape') {
       setDraft({
@@ -612,6 +624,11 @@ export const WhiteboardCanvas = ({
     setDraft(null);
   };
 
+  const handlePointerLeave = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    onCursorActivity(null);
+    handlePointerUp(event);
+  };
+
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>): void => {
     if (!event.metaKey && !event.ctrlKey) {
       return;
@@ -655,7 +672,7 @@ export const WhiteboardCanvas = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
       onWheel={handleWheel}
     >
       <svg className="h-full w-full" viewBox={`0 0 ${renderWidth} ${renderHeight}`} role="img">
@@ -690,6 +707,37 @@ export const WhiteboardCanvas = ({
           {draftScene.elements.map((element) =>
             renderElement(element, selectedElements.some((selectedElement) => selectedElement.id === element.id)),
           )}
+
+          {remoteCursors.map((cursor) => (
+            <g key={cursor.userId} transform={`translate(${cursor.x} ${cursor.y})`}>
+              <circle cx="0" cy="0" r="11" fill={cursor.color} fillOpacity="0.2" />
+              <circle cx="0" cy="0" r="5.5" fill={cursor.color} />
+              <line x1="0" y1="0" x2="0" y2="30" stroke={cursor.color} strokeWidth="3" strokeLinecap="round" />
+              <g transform="translate(16 -12)">
+                <rect
+                  x="0"
+                  y="0"
+                  rx="14"
+                  ry="14"
+                  width={Math.max(cursor.name.length * 8.4 + 20, 72)}
+                  height="28"
+                  fill="rgba(15,23,42,0.92)"
+                  stroke={cursor.color}
+                  strokeWidth="1.5"
+                />
+                <text
+                  x="10"
+                  y="18"
+                  fill="#f8fafc"
+                  fontSize="12"
+                  fontWeight="700"
+                  style={{ letterSpacing: '0.02em' }}
+                >
+                  {cursor.name}
+                </text>
+              </g>
+            </g>
+          ))}
         </g>
       </svg>
 

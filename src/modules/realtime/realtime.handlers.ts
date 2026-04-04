@@ -2,7 +2,12 @@ import { ZodError } from 'zod';
 
 import { logRealtimeEvent } from './realtime.logger';
 import { realtimeService } from './realtime.service';
-import { joinDocumentSchema, leaveDocumentSchema, sendChangesSchema } from './realtime.types';
+import {
+  joinDocumentSchema,
+  leaveDocumentSchema,
+  sendChangesSchema,
+  updateCursorSchema,
+} from './realtime.types';
 import { whiteboardService } from '../whiteboard/whiteboard.service';
 
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
@@ -58,6 +63,7 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         content: whiteboard.content,
         ownerId: whiteboard.ownerId,
         activeUserIds,
+        activeCursors: realtimeService.getActiveCursors(parsedPayload.whiteboardId),
         accessRole: whiteboardService.isWhiteboardOwner(whiteboard, socket.data.authUser.userId)
           ? 'owner'
           : 'collaborator',
@@ -99,6 +105,11 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         whiteboardId: parsedPayload.whiteboardId,
         activeUserIds,
         leftUserId: socket.data.authUser.userId,
+        timestamp: new Date().toISOString(),
+      });
+      socket.to(getRoomName(parsedPayload.whiteboardId)).emit('cursor_presence_cleared', {
+        whiteboardId: parsedPayload.whiteboardId,
+        userId: socket.data.authUser.userId,
         timestamp: new Date().toISOString(),
       });
 
@@ -153,6 +164,36 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
     }
   });
 
+  socket.on('update_cursor', async (payload) => {
+    try {
+      const parsedPayload = updateCursorSchema.parse(payload);
+      const cursorPayload = await realtimeService.updateCursorPresence(
+        socket.data.authUser.userId,
+        socket.id,
+        parsedPayload.whiteboardId,
+        parsedPayload.cursor,
+      );
+
+      if (cursorPayload) {
+        socket
+          .to(getRoomName(parsedPayload.whiteboardId))
+          .emit('cursor_presence_updated', cursorPayload);
+      } else {
+        socket.to(getRoomName(parsedPayload.whiteboardId)).emit('cursor_presence_cleared', {
+          whiteboardId: parsedPayload.whiteboardId,
+          userId: socket.data.authUser.userId,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      logRealtimeEvent('Rejected cursor presence update.', {
+        socketId: socket.id,
+        userId: socket.data.authUser.userId,
+        error: getErrorMessage(error),
+      });
+    }
+  });
+
   socket.on('disconnect', (reason) => {
     const disconnectState = realtimeService.handleDisconnect(
       socket.id,
@@ -164,6 +205,11 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         whiteboardId: state.whiteboardId,
         activeUserIds: state.activeUserIds,
         leftUserId: socket.data.authUser.userId,
+        timestamp: new Date().toISOString(),
+      });
+      socket.to(getRoomName(state.whiteboardId)).emit('cursor_presence_cleared', {
+        whiteboardId: state.whiteboardId,
+        userId: socket.data.authUser.userId,
         timestamp: new Date().toISOString(),
       });
     }

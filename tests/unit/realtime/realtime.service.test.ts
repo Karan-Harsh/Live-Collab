@@ -146,4 +146,36 @@ describe('RealtimeService', () => {
       },
     ]);
   });
+
+  it('stores and clears cursor presence for joined whiteboards', async () => {
+    const whiteboard = createWhiteboard();
+    const service = new RealtimeService({
+      findById: vi.fn().mockResolvedValue(whiteboard),
+      updateWhiteboard: vi.fn(),
+    });
+
+    service.trackSocketWhiteboard('socket-owner', whiteboard.id, whiteboard.ownerId);
+
+    await expect(
+      service.updateCursorPresence(whiteboard.ownerId, 'socket-owner', whiteboard.id, {
+        x: 320,
+        y: 180,
+      }),
+    ).resolves.toMatchObject({
+      userId: whiteboard.ownerId,
+      whiteboardId: whiteboard.id,
+      cursor: {
+        x: 320,
+        y: 180,
+      },
+    });
+
+    expect(service.getActiveCursors(whiteboard.id)).toHaveLength(1);
+
+    await expect(
+      service.updateCursorPresence(whiteboard.ownerId, 'socket-owner', whiteboard.id, null),
+    ).resolves.toBeNull();
+
+    expect(service.getActiveCursors(whiteboard.id)).toEqual([]);
+  });
 });

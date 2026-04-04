@@ -5,6 +5,8 @@ import { io, type Socket } from 'socket.io-client';
 import { SOCKET_URL } from '@/lib/config';
 
 import type {
+  RealtimeCursorPresenceClearedPayload,
+  RealtimeCursorPresencePayload,
   RealtimeJoinResponse,
   RealtimePresenceUpdatedPayload,
   RealtimeReceiveChangesPayload,
@@ -21,9 +23,19 @@ type SendChangesPayload = {
   content?: string;
 };
 
+type UpdateCursorPayload = {
+  whiteboardId: string;
+  cursor: {
+    x: number;
+    y: number;
+  } | null;
+};
+
 type ServerToClientEvents = {
   receive_changes: (payload: RealtimeReceiveChangesPayload) => void;
   presence_updated: (payload: RealtimePresenceUpdatedPayload) => void;
+  cursor_presence_updated: (payload: RealtimeCursorPresencePayload) => void;
+  cursor_presence_cleared: (payload: RealtimeCursorPresenceClearedPayload) => void;
 };
 
 type ClientToServerEvents = {
@@ -39,6 +51,7 @@ type ClientToServerEvents = {
     payload: SendChangesPayload,
     callback?: (response: { queued: true; whiteboardId: string } | RealtimeError) => void,
   ) => void;
+  update_cursor: (payload: UpdateCursorPayload) => void;
 };
 
 type RealtimeSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

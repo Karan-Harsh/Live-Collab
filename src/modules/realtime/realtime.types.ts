@@ -18,9 +18,21 @@ export const sendChangesSchema = z.object({
   content: z.string().max(5_000_000).optional(),
 });
 
+export const updateCursorSchema = z.object({
+  whiteboardId: z.string().uuid(),
+  cursor:
+    z
+      .object({
+        x: z.number().finite(),
+        y: z.number().finite(),
+      })
+      .nullable(),
+});
+
 export type JoinDocumentPayload = z.infer<typeof joinDocumentSchema>;
 export type LeaveDocumentPayload = z.infer<typeof leaveDocumentSchema>;
 export type SendChangesPayload = z.infer<typeof sendChangesSchema>;
+export type UpdateCursorPayload = z.infer<typeof updateCursorSchema>;
 
 export interface ReceiveChangesPayload {
   whiteboardId: string;
@@ -40,12 +52,29 @@ export interface PresenceUpdatedPayload {
   timestamp: string;
 }
 
+export interface CursorPresencePayload {
+  userId: string;
+  whiteboardId: string;
+  cursor: {
+    x: number;
+    y: number;
+  };
+  timestamp: string;
+}
+
+export interface CursorPresenceClearedPayload {
+  whiteboardId: string;
+  userId: string;
+  timestamp: string;
+}
+
 export interface JoinDocumentSuccessPayload {
   whiteboardId: string;
   title: string;
   content: string;
   ownerId: string;
   activeUserIds: string[];
+  activeCursors: CursorPresencePayload[];
   accessRole: 'owner' | 'collaborator';
   permissions: {
     canEdit: boolean;
@@ -72,11 +101,14 @@ export interface ClientToServerEvents {
     payload: SendChangesPayload,
     callback?: (response: { queued: true; whiteboardId: string } | RealtimeErrorPayload) => void,
   ) => void;
+  update_cursor: (payload: UpdateCursorPayload) => void;
 }
 
 export interface ServerToClientEvents {
   receive_changes: (payload: ReceiveChangesPayload) => void;
   presence_updated: (payload: PresenceUpdatedPayload) => void;
+  cursor_presence_updated: (payload: CursorPresencePayload) => void;
+  cursor_presence_cleared: (payload: CursorPresenceClearedPayload) => void;
 }
 
 export interface InterServerEvents {}
