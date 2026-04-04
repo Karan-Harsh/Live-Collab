@@ -45,41 +45,66 @@ const SignupPage = () => {
         alternateLabel="Already have an account?"
       >
         <form
-          className="space-y-4"
+          className="space-y-5"
           onSubmit={(event) => {
             event.preventDefault();
             setError(null);
             signupMutation.mutate(form);
           }}
         >
-          <Input
-            placeholder="Jane Doe"
-            value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-          />
-          <Input
-            type="email"
-            placeholder="you@company.com"
-            value={form.email}
-            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-          />
-          <Input
-            type="password"
-            placeholder="At least 8 characters"
-            value={form.password}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, password: event.target.value }))
-            }
-          />
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
+              Name
+            </label>
+            <Input
+              placeholder="Jane Doe"
+              value={form.name}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
 
-          {error ? <p className="text-sm text-white/75">{error}</p> : null}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
+              Email
+            </label>
+            <Input
+              type="email"
+              placeholder="you@company.com"
+              value={form.email}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, email: event.target.value }))
+              }
+            />
+          </div>
 
-          <Button type="submit" className="w-full" disabled={signupMutation.isPending}>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
+              Password
+            </label>
+            <Input
+              type="password"
+              placeholder="At least 8 characters"
+              value={form.password}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, password: event.target.value }))
+              }
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75">
+              {error}
+            </div>
+          ) : null}
+
+          <Button type="submit" className="mt-2 w-full" disabled={signupMutation.isPending}>
             {signupMutation.isPending ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-muted">
           Already invited?{' '}
           <Link href="/login" className="font-semibold text-white">
             Sign in instead
