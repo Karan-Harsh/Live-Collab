@@ -6,8 +6,8 @@ import { joinDocumentSchema, leaveDocumentSchema, sendChangesSchema } from './re
 
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
-const getRoomName = (documentId: string): string => {
-  return `document:${documentId}`;
+const getRoomName = (whiteboardId: string): string => {
+  return `whiteboard:${whiteboardId}`;
 };
 
 const getErrorMessage = (error: unknown): string => {
@@ -23,29 +23,29 @@ const getErrorMessage = (error: unknown): string => {
 };
 
 export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSocket): void => {
-  socket.on('join_document', async (payload, callback) => {
+  socket.on('join_whiteboard', async (payload, callback) => {
     try {
       const parsedPayload = joinDocumentSchema.parse(payload);
-      const document = await realtimeService.getJoinState(
-        parsedPayload.documentId,
+      const whiteboard = await realtimeService.getJoinState(
+        parsedPayload.whiteboardId,
         socket.data.authUser.userId,
       );
 
-      await socket.join(getRoomName(parsedPayload.documentId));
-      realtimeService.trackSocketDocument(socket.id, parsedPayload.documentId);
+      await socket.join(getRoomName(parsedPayload.whiteboardId));
+      realtimeService.trackSocketWhiteboard(socket.id, parsedPayload.whiteboardId);
 
-      logRealtimeEvent('Socket joined document room.', {
+      logRealtimeEvent('Socket joined whiteboard room.', {
         socketId: socket.id,
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
         userId: socket.data.authUser.userId,
       });
 
       callback?.({
-        documentId: document.id,
-        title: document.title,
-        content: document.content,
-        isShared: document.isShared,
-        ownerId: document.ownerId,
+        whiteboardId: whiteboard.id,
+        title: whiteboard.title,
+        content: whiteboard.content,
+        isShared: whiteboard.isShared,
+        ownerId: whiteboard.ownerId,
       });
     } catch (error) {
       callback?.({
@@ -54,22 +54,22 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
     }
   });
 
-  socket.on('leave_document', async (payload, callback) => {
+  socket.on('leave_whiteboard', async (payload, callback) => {
     try {
       const parsedPayload = leaveDocumentSchema.parse(payload);
 
-      await socket.leave(getRoomName(parsedPayload.documentId));
-      realtimeService.untrackSocketDocument(socket.id, parsedPayload.documentId);
+      await socket.leave(getRoomName(parsedPayload.whiteboardId));
+      realtimeService.untrackSocketWhiteboard(socket.id, parsedPayload.whiteboardId);
 
-      logRealtimeEvent('Socket left document room.', {
+      logRealtimeEvent('Socket left whiteboard room.', {
         socketId: socket.id,
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
         userId: socket.data.authUser.userId,
       });
 
       callback?.({
         left: true,
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
       });
     } catch (error) {
       callback?.({
@@ -82,10 +82,10 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
     try {
       const parsedPayload = sendChangesSchema.parse(payload);
 
-      await realtimeService.stageDocumentChange(socket.data.authUser.userId, parsedPayload);
+      await realtimeService.stageWhiteboardChange(socket.data.authUser.userId, parsedPayload);
 
       const receiveChangesPayload = {
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
         changes: parsedPayload.changes,
         updatedBy: socket.data.authUser.userId,
         timestamp: new Date().toISOString(),
@@ -93,17 +93,17 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         ...(parsedPayload.content !== undefined ? { content: parsedPayload.content } : {}),
       };
 
-      socket.to(getRoomName(parsedPayload.documentId)).emit('receive_changes', receiveChangesPayload);
+      socket.to(getRoomName(parsedPayload.whiteboardId)).emit('receive_changes', receiveChangesPayload);
 
-      logRealtimeEvent('Broadcasted document changes.', {
+      logRealtimeEvent('Broadcasted whiteboard changes.', {
         socketId: socket.id,
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
         userId: socket.data.authUser.userId,
       });
 
       callback?.({
         queued: true,
-        documentId: parsedPayload.documentId,
+        whiteboardId: parsedPayload.whiteboardId,
       });
     } catch (error) {
       callback?.({
@@ -113,13 +113,13 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
   });
 
   socket.on('disconnect', (reason) => {
-    const documentIds = realtimeService.handleDisconnect(socket.id);
+    const whiteboardIds = realtimeService.handleDisconnect(socket.id);
 
     logRealtimeEvent('Socket disconnected.', {
       socketId: socket.id,
       userId: socket.data.authUser.userId,
       reason,
-      documentIds,
+      whiteboardIds,
     });
   });
 };

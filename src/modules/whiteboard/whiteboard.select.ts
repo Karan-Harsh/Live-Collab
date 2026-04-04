@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-export const documentSelect = {
+export const whiteboardSelect = {
   id: true,
   title: true,
   content: true,
@@ -8,8 +8,8 @@ export const documentSelect = {
   ownerId: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.DocumentSelect;
+} satisfies Prisma.WhiteboardSelect;
 
-export type DocumentView = Prisma.DocumentGetPayload<{
-  select: typeof documentSelect;
+export type WhiteboardView = Prisma.WhiteboardGetPayload<{
+  select: typeof whiteboardSelect;
 }>;

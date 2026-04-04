@@ -133,7 +133,7 @@ Recommended setup:
    - `/login`
    - `/signup`
    - `/dashboard`
-   - `/documents/[id]`
+   - `/whiteboards/[id]`
 
 Important:
 
@@ -168,7 +168,7 @@ Typical promotion flow:
 
 - Run committed Prisma migrations against production
 - Verify `GET /health`
-- Verify login, signup, document CRUD, and realtime document sync
+- Verify login, signup, whiteboard CRUD, and realtime whiteboard sync
 - Confirm Redis connectivity for Socket.IO adapter
 - Confirm Vercel `NEXT_PUBLIC_API_URL` points at the public backend domain
 - Confirm logs do not expose secrets or JWTs

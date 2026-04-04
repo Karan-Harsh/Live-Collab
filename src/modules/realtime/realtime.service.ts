@@ -2,49 +2,52 @@ import createHttpError from 'http-errors';
 
 import { logRealtimeEvent } from './realtime.logger';
 import { env } from '../../config/env';
-import { documentRepository } from '../document/document.repository';
+import { whiteboardRepository } from '../whiteboard/whiteboard.repository';
 
 import type { SendChangesPayload } from './realtime.types';
-import type { DocumentView } from '../document/document.select';
+import type { WhiteboardView } from '../whiteboard/whiteboard.select';
 import type { Prisma } from '@prisma/client';
 
-interface BufferedDocumentState {
+interface BufferedWhiteboardState {
   title: string;
   content: string;
   flushTimer: NodeJS.Timeout | null;
 }
 
-interface DocumentPersistenceGateway {
-  findById(documentId: string): Promise<DocumentView | null>;
-  updateDocument(documentId: string, data: Prisma.DocumentUpdateInput): Promise<DocumentView>;
+interface WhiteboardPersistenceGateway {
+  findById(whiteboardId: string): Promise<WhiteboardView | null>;
+  updateWhiteboard(
+    whiteboardId: string,
+    data: Prisma.WhiteboardUpdateInput,
+  ): Promise<WhiteboardView>;
 }
 
 export class RealtimeService {
-  private readonly documentBuffers = new Map<string, BufferedDocumentState>();
-  private readonly socketDocuments = new Map<string, Set<string>>();
+  private readonly whiteboardBuffers = new Map<string, BufferedWhiteboardState>();
+  private readonly socketWhiteboards = new Map<string, Set<string>>();
 
   constructor(
-    private readonly persistence: DocumentPersistenceGateway = documentRepository,
+    private readonly persistence: WhiteboardPersistenceGateway = whiteboardRepository,
     private readonly debounceMs: number = env.REALTIME_PERSIST_DEBOUNCE_MS,
   ) {}
 
-  async getJoinState(documentId: string, requesterId: string): Promise<DocumentView> {
-    const document = await this.getAccessibleDocument(documentId, requesterId);
-    const bufferedState = this.documentBuffers.get(documentId);
+  async getJoinState(whiteboardId: string, requesterId: string): Promise<WhiteboardView> {
+    const whiteboard = await this.getAccessibleWhiteboard(whiteboardId, requesterId);
+    const bufferedState = this.whiteboardBuffers.get(whiteboardId);
 
     if (!bufferedState) {
-      return document;
+      return whiteboard;
     }
 
     return {
-      ...document,
+      ...whiteboard,
       title: bufferedState.title,
       content: bufferedState.content,
     };
   }
 
-  async stageDocumentChange(requesterId: string, payload: SendChangesPayload): Promise<void> {
-    const document = await this.ensureCanEdit(payload.documentId, requesterId);
+  async stageWhiteboardChange(requesterId: string, payload: SendChangesPayload): Promise<void> {
+    const whiteboard = await this.ensureCanEdit(payload.whiteboardId, requesterId);
     const shouldPersistBufferedSnapshot =
       payload.title !== undefined || payload.content !== undefined;
 
@@ -52,7 +55,7 @@ export class RealtimeService {
       return;
     }
 
-    const bufferedState = this.getOrCreateBuffer(document);
+    const bufferedState = this.getOrCreateBuffer(whiteboard);
 
     if (payload.title !== undefined) {
       bufferedState.title = payload.title;
@@ -62,95 +65,97 @@ export class RealtimeService {
       bufferedState.content = payload.content;
     }
 
-    this.scheduleFlush(payload.documentId);
+    this.scheduleFlush(payload.whiteboardId);
   }
 
-  trackSocketDocument(socketId: string, documentId: string): void {
-    const activeDocuments = this.socketDocuments.get(socketId) ?? new Set<string>();
-    activeDocuments.add(documentId);
-    this.socketDocuments.set(socketId, activeDocuments);
+  trackSocketWhiteboard(socketId: string, whiteboardId: string): void {
+    const activeWhiteboards = this.socketWhiteboards.get(socketId) ?? new Set<string>();
+    activeWhiteboards.add(whiteboardId);
+    this.socketWhiteboards.set(socketId, activeWhiteboards);
   }
 
-  untrackSocketDocument(socketId: string, documentId: string): void {
-    const activeDocuments = this.socketDocuments.get(socketId);
+  untrackSocketWhiteboard(socketId: string, whiteboardId: string): void {
+    const activeWhiteboards = this.socketWhiteboards.get(socketId);
 
-    if (!activeDocuments) {
+    if (!activeWhiteboards) {
       return;
     }
 
-    activeDocuments.delete(documentId);
+    activeWhiteboards.delete(whiteboardId);
 
-    if (activeDocuments.size === 0) {
-      this.socketDocuments.delete(socketId);
+    if (activeWhiteboards.size === 0) {
+      this.socketWhiteboards.delete(socketId);
     }
   }
 
   handleDisconnect(socketId: string): string[] {
-    const activeDocuments = this.socketDocuments.get(socketId);
-    const documentIds = activeDocuments ? Array.from(activeDocuments) : [];
+    const activeWhiteboards = this.socketWhiteboards.get(socketId);
+    const whiteboardIds = activeWhiteboards ? Array.from(activeWhiteboards) : [];
 
-    this.socketDocuments.delete(socketId);
+    this.socketWhiteboards.delete(socketId);
 
-    return documentIds;
+    return whiteboardIds;
   }
 
   async shutdown(): Promise<void> {
-    const documentIds = Array.from(this.documentBuffers.keys());
+    const whiteboardIds = Array.from(this.whiteboardBuffers.keys());
 
-    await Promise.allSettled(documentIds.map((documentId) => this.flushDocument(documentId)));
+    await Promise.allSettled(
+      whiteboardIds.map((whiteboardId) => this.flushWhiteboard(whiteboardId)),
+    );
   }
 
-  private async getAccessibleDocument(
-    documentId: string,
+  private async getAccessibleWhiteboard(
+    whiteboardId: string,
     requesterId: string,
-  ): Promise<DocumentView> {
-    const document = await this.persistence.findById(documentId);
+  ): Promise<WhiteboardView> {
+    const whiteboard = await this.persistence.findById(whiteboardId);
 
-    if (!document) {
-      throw createHttpError(404, 'Document not found.');
+    if (!whiteboard) {
+      throw createHttpError(404, 'Whiteboard not found.');
     }
 
-    if (document.ownerId !== requesterId && !document.isShared) {
-      throw createHttpError(403, 'You do not have access to this document.');
+    if (whiteboard.ownerId !== requesterId && !whiteboard.isShared) {
+      throw createHttpError(403, 'You do not have access to this whiteboard.');
     }
 
-    return document;
+    return whiteboard;
   }
 
-  private async ensureCanEdit(documentId: string, requesterId: string): Promise<DocumentView> {
-    const document = await this.persistence.findById(documentId);
+  private async ensureCanEdit(whiteboardId: string, requesterId: string): Promise<WhiteboardView> {
+    const whiteboard = await this.persistence.findById(whiteboardId);
 
-    if (!document) {
-      throw createHttpError(404, 'Document not found.');
+    if (!whiteboard) {
+      throw createHttpError(404, 'Whiteboard not found.');
     }
 
-    if (document.ownerId !== requesterId) {
-      throw createHttpError(403, 'Only the document owner can broadcast changes.');
+    if (whiteboard.ownerId !== requesterId) {
+      throw createHttpError(403, 'Only the whiteboard owner can broadcast changes.');
     }
 
-    return document;
+    return whiteboard;
   }
 
-  private getOrCreateBuffer(document: DocumentView): BufferedDocumentState {
-    const existingBuffer = this.documentBuffers.get(document.id);
+  private getOrCreateBuffer(whiteboard: WhiteboardView): BufferedWhiteboardState {
+    const existingBuffer = this.whiteboardBuffers.get(whiteboard.id);
 
     if (existingBuffer) {
       return existingBuffer;
     }
 
-    const initialBuffer: BufferedDocumentState = {
-      title: document.title,
-      content: document.content,
+    const initialBuffer: BufferedWhiteboardState = {
+      title: whiteboard.title,
+      content: whiteboard.content,
       flushTimer: null,
     };
 
-    this.documentBuffers.set(document.id, initialBuffer);
+    this.whiteboardBuffers.set(whiteboard.id, initialBuffer);
 
     return initialBuffer;
   }
 
-  private scheduleFlush(documentId: string): void {
-    const buffer = this.documentBuffers.get(documentId);
+  private scheduleFlush(whiteboardId: string): void {
+    const buffer = this.whiteboardBuffers.get(whiteboardId);
 
     if (!buffer) {
       return;
@@ -161,14 +166,14 @@ export class RealtimeService {
     }
 
     buffer.flushTimer = setTimeout(() => {
-      void this.flushDocument(documentId).catch((error: unknown) => {
-        console.error('Failed to flush realtime document changes.', error);
+      void this.flushWhiteboard(whiteboardId).catch((error: unknown) => {
+        console.error('Failed to flush realtime whiteboard changes.', error);
       });
     }, this.debounceMs);
   }
 
-  private async flushDocument(documentId: string): Promise<void> {
-    const buffer = this.documentBuffers.get(documentId);
+  private async flushWhiteboard(whiteboardId: string): Promise<void> {
+    const buffer = this.whiteboardBuffers.get(whiteboardId);
 
     if (!buffer) {
       return;
@@ -179,14 +184,14 @@ export class RealtimeService {
       buffer.flushTimer = null;
     }
 
-    await this.persistence.updateDocument(documentId, {
+    await this.persistence.updateWhiteboard(whiteboardId, {
       title: buffer.title,
       content: buffer.content,
     });
 
-    this.documentBuffers.delete(documentId);
-    logRealtimeEvent('Flushed buffered document changes.', {
-      documentId,
+    this.whiteboardBuffers.delete(whiteboardId);
+    logRealtimeEvent('Flushed buffered whiteboard changes.', {
+      whiteboardId,
     });
   }
 }

@@ -9,13 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage } from '@/lib/error';
-import { updateDocument, deleteDocument } from '@/services/document-service';
 import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime-service';
+import { deleteWhiteboard, updateWhiteboard } from '@/services/whiteboard-service';
 
-import type { DocumentRecord, RealtimeReceiveChangesPayload } from '@/lib/types';
+import type { RealtimeReceiveChangesPayload, WhiteboardRecord } from '@/lib/types';
 
 interface CollaborativeEditorProps {
-  document: DocumentRecord;
+  whiteboard: WhiteboardRecord;
   accessToken: string;
   currentUserId: string;
 }
@@ -24,7 +24,7 @@ type ConnectionState = 'connecting' | 'live' | 'offline';
 type SyncState = 'idle' | 'syncing' | 'remote-update';
 
 export const CollaborativeEditor = ({
-  document,
+  whiteboard,
   accessToken,
   currentUserId,
 }: CollaborativeEditorProps) => {
@@ -33,30 +33,30 @@ export const CollaborativeEditor = ({
   const broadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
 
-  const [title, setTitle] = useState(document.title);
-  const [content, setContent] = useState(document.content);
-  const [isShared, setIsShared] = useState(document.isShared);
+  const [title, setTitle] = useState(whiteboard.title);
+  const [content, setContent] = useState(whiteboard.content);
+  const [isShared, setIsShared] = useState(whiteboard.isShared);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [error, setError] = useState<string | null>(null);
-  const canEdit = document.ownerId === currentUserId;
+  const canEdit = whiteboard.ownerId === currentUserId;
 
   const updateMutation = useMutation({
     mutationFn: (nextSharedState: boolean) =>
-      updateDocument(document.id, {
+      updateWhiteboard(whiteboard.id, {
         isShared: nextSharedState,
       }),
-    onSuccess: (updatedDocument) => {
-      setIsShared(updatedDocument.isShared);
+    onSuccess: (updatedWhiteboard) => {
+      setIsShared(updatedWhiteboard.isShared);
     },
     onError: (mutationError) => {
-      setIsShared(document.isShared);
+      setIsShared(whiteboard.isShared);
       setError(getErrorMessage(mutationError));
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteDocument(document.id),
+    mutationFn: () => deleteWhiteboard(whiteboard.id),
     onSuccess: () => {
       disconnectRealtimeSocket();
       router.replace('/dashboard');
@@ -67,11 +67,11 @@ export const CollaborativeEditor = ({
   });
 
   useEffect(() => {
-    setTitle(document.title);
-    setContent(document.content);
-    setIsShared(document.isShared);
+    setTitle(whiteboard.title);
+    setContent(whiteboard.content);
+    setIsShared(whiteboard.isShared);
     suppressBroadcastRef.current = true;
-  }, [document.content, document.isShared, document.title]);
+  }, [whiteboard.content, whiteboard.isShared, whiteboard.title]);
 
   useEffect(() => {
     const socket = getRealtimeSocket(accessToken);
@@ -87,7 +87,7 @@ export const CollaborativeEditor = ({
     };
 
     const handleReceiveChanges = (payload: RealtimeReceiveChangesPayload): void => {
-      if (payload.documentId !== document.id || payload.updatedBy === currentUserId) {
+      if (payload.whiteboardId !== whiteboard.id || payload.updatedBy === currentUserId) {
         return;
       }
 
@@ -110,7 +110,7 @@ export const CollaborativeEditor = ({
     socket.on('receive_changes', handleReceiveChanges);
 
     socket.connect();
-    socket.emit('join_document', { documentId: document.id }, (response) => {
+    socket.emit('join_whiteboard', { whiteboardId: whiteboard.id }, (response) => {
       if ('message' in response) {
         setError(response.message);
         return;
@@ -124,14 +124,14 @@ export const CollaborativeEditor = ({
     });
 
     return () => {
-      socket.emit('leave_document', { documentId: document.id });
+      socket.emit('leave_whiteboard', { whiteboardId: whiteboard.id });
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('receive_changes', handleReceiveChanges);
       socket.disconnect();
       disconnectRealtimeSocket();
     };
-  }, [accessToken, currentUserId, document.id]);
+  }, [accessToken, currentUserId, whiteboard.id]);
 
   useEffect(() => {
     if (!canEdit) {
@@ -156,10 +156,10 @@ export const CollaborativeEditor = ({
       socketRef.current?.emit(
         'send_changes',
         {
-          documentId: document.id,
+          whiteboardId: whiteboard.id,
           changes: {
             type: 'snapshot',
-            field: 'document',
+            field: 'whiteboard',
           },
           title,
           content,
@@ -181,7 +181,7 @@ export const CollaborativeEditor = ({
         window.clearTimeout(broadcastTimerRef.current);
       }
     };
-  }, [canEdit, content, document.id, title]);
+  }, [canEdit, content, title, whiteboard.id]);
 
   const connectionTone = useMemo(() => {
     if (connectionState === 'live') {
@@ -215,10 +215,11 @@ export const CollaborativeEditor = ({
                   : 'Realtime offline'}
             </Badge>
             <Badge>{syncLabel}</Badge>
-            <Badge>{isShared ? 'Shared document' : 'Private document'}</Badge>
+            <Badge>{isShared ? 'Shared whiteboard' : 'Private whiteboard'}</Badge>
           </div>
           <p className="text-sm text-muted">
-            Changes broadcast to everyone in this room and persist with a debounced backend sync.
+            Changes broadcast to everyone in this workspace and persist with a debounced backend
+            sync.
           </p>
         </div>
 
@@ -244,7 +245,7 @@ export const CollaborativeEditor = ({
             <Button
               variant="danger"
               onClick={() => {
-                if (window.confirm('Delete this document permanently?')) {
+                if (window.confirm('Delete this whiteboard permanently?')) {
                   deleteMutation.mutate();
                 }
               }}
@@ -263,14 +264,14 @@ export const CollaborativeEditor = ({
 
       {!canEdit ? (
         <div className="rounded-2xl border border-accentSky/20 bg-accentSky/10 px-4 py-3 text-sm text-accentSky">
-          You have shared read access to this document. Only the owner can edit, share, or delete
-          it.
+          You have shared read access to this whiteboard. Only the owner can edit, share, or
+          delete it.
         </div>
       ) : null}
 
       <div className="grid gap-5 rounded-[32px] border border-white/10 bg-panelSoft/80 p-5 backdrop-blur">
         <div className="grid gap-3">
-          <label className="text-sm font-medium text-muted">Document title</label>
+          <label className="text-sm font-medium text-muted">Whiteboard title</label>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -280,12 +281,12 @@ export const CollaborativeEditor = ({
         </div>
 
         <div className="grid gap-3">
-          <label className="text-sm font-medium text-muted">Editor</label>
+          <label className="text-sm font-medium text-muted">Board data</label>
           <Textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
             className="min-h-[62vh] resize-none font-mono text-[15px] leading-7"
-            placeholder="Start typing to collaborate in real time..."
+            placeholder="This temporary surface will become the visual whiteboard canvas next."
             readOnly={!canEdit}
           />
         </div>

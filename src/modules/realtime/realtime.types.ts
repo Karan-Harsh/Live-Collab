@@ -4,15 +4,15 @@ import type { AuthenticatedRequestUser } from '../auth/auth.types';
 import type { Server, Socket } from 'socket.io';
 
 export const joinDocumentSchema = z.object({
-  documentId: z.string().uuid(),
+  whiteboardId: z.string().uuid(),
 });
 
 export const leaveDocumentSchema = z.object({
-  documentId: z.string().uuid(),
+  whiteboardId: z.string().uuid(),
 });
 
 export const sendChangesSchema = z.object({
-  documentId: z.string().uuid(),
+  whiteboardId: z.string().uuid(),
   changes: z.unknown(),
   title: z.string().trim().min(1).max(255).optional(),
   content: z.string().max(100_000).optional(),
@@ -23,7 +23,7 @@ export type LeaveDocumentPayload = z.infer<typeof leaveDocumentSchema>;
 export type SendChangesPayload = z.infer<typeof sendChangesSchema>;
 
 export interface ReceiveChangesPayload {
-  documentId: string;
+  whiteboardId: string;
   changes: unknown;
   title?: string;
   content?: string;
@@ -33,7 +33,7 @@ export interface ReceiveChangesPayload {
 }
 
 export interface JoinDocumentSuccessPayload {
-  documentId: string;
+  whiteboardId: string;
   title: string;
   content: string;
   isShared: boolean;
@@ -45,17 +45,17 @@ export interface RealtimeErrorPayload {
 }
 
 export interface ClientToServerEvents {
-  join_document: (
+  join_whiteboard: (
     payload: JoinDocumentPayload,
     callback?: (response: JoinDocumentSuccessPayload | RealtimeErrorPayload) => void,
   ) => void;
-  leave_document: (
+  leave_whiteboard: (
     payload: LeaveDocumentPayload,
-    callback?: (response: { left: true; documentId: string } | RealtimeErrorPayload) => void,
+    callback?: (response: { left: true; whiteboardId: string } | RealtimeErrorPayload) => void,
   ) => void;
   send_changes: (
     payload: SendChangesPayload,
-    callback?: (response: { queued: true; documentId: string } | RealtimeErrorPayload) => void,
+    callback?: (response: { queued: true; whiteboardId: string } | RealtimeErrorPayload) => void,
   ) => void;
 }
 

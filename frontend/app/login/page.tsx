@@ -40,7 +40,7 @@ const LoginPage = () => {
       <AuthShell
         eyebrow="Welcome back"
         title="Sign in to Liv Collab"
-        description="Use your account to open dashboards, join document rooms, and sync edits in real time."
+        description="Use your account to open dashboards, join whiteboard rooms, and sync changes in real time."
         alternateHref="/signup"
         alternateLabel="Create an account"
       >

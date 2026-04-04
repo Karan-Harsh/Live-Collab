@@ -1,6 +1,6 @@
 # Liv Collab Frontend
 
-Next.js App Router frontend for the Liv Collab real-time collaborative editor.
+Next.js App Router frontend for the Liv Collab real-time collaborative whiteboard workspace.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Next.js App Router frontend for the Liv Collab real-time collaborative editor.
 - Tailwind CSS
 - React Query for server data
 - Zustand for auth session state
-- Socket.IO client for realtime document sync
+- Socket.IO client for realtime whiteboard sync
 
 ## Project Structure
 
@@ -63,8 +63,8 @@ The backend should be running with:
 
 - Signup and login flows connected to backend auth endpoints
 - Persisted auth session with automatic access-token refresh
-- Dashboard with document listing, creation, and deletion
-- Realtime editor page with Socket.IO room join/leave and live content sync
+- Dashboard with whiteboard listing, creation, and deletion
+- Realtime whiteboard page with Socket.IO room join/leave and live content sync
 - Share toggle and protected routes
 
 ## Notes

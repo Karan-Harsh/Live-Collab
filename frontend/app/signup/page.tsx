@@ -40,7 +40,7 @@ const SignupPage = () => {
       <AuthShell
         eyebrow="Create account"
         title="Launch your collaboration workspace"
-        description="Set up access for secure document editing, shared review flows, and instant sync."
+        description="Set up access for secure whiteboard collaboration, shared workspaces, and instant sync."
         alternateHref="/login"
         alternateLabel="Already have an account?"
       >

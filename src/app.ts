@@ -6,8 +6,8 @@ import { errorHandler } from './middleware/error-handler';
 import { notFoundHandler } from './middleware/not-found';
 import { requestLogger } from './middleware/request-logger';
 import { authRouter } from './modules/auth/auth.routes';
-import { documentRouter } from './modules/document/document.routes';
 import { userRouter } from './modules/user/user.routes';
+import { whiteboardRouter } from './modules/whiteboard/whiteboard.routes';
 import { sendSuccess } from './utils/response';
 
 export const app = express();
@@ -32,8 +32,10 @@ app.get('/health', (_request: Request, response: Response) => {
 
 app.use('/auth', authRouter);
 app.use('/api/v1/users', userRouter);
-app.use('/documents', documentRouter);
-app.use('/api/v1/documents', documentRouter);
+app.use('/whiteboards', whiteboardRouter);
+app.use('/api/v1/whiteboards', whiteboardRouter);
+app.use('/documents', whiteboardRouter);
+app.use('/api/v1/documents', whiteboardRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

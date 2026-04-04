@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getErrorMessage } from '@/lib/error';
 
-interface CreateDocumentCardProps {
+interface CreateWhiteboardCardProps {
   onCreate: (input: { title: string; content: string; isShared: boolean }) => Promise<unknown>;
   isPending: boolean;
 }
 
-export const CreateDocumentCard = ({ onCreate, isPending }: CreateDocumentCardProps) => {
+export const CreateWhiteboardCard = ({ onCreate, isPending }: CreateWhiteboardCardProps) => {
   const [title, setTitle] = useState('');
   const [isShared, setIsShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +37,10 @@ export const CreateDocumentCard = ({ onCreate, isPending }: CreateDocumentCardPr
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accent">
-            New Document
+            New Whiteboard
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
-            Start a fresh collaboration thread
+            Start a fresh collaboration space
           </h2>
         </div>
         <label className="inline-flex items-center gap-3 text-sm text-muted">
@@ -56,7 +56,7 @@ export const CreateDocumentCard = ({ onCreate, isPending }: CreateDocumentCardPr
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
         <Input
-          placeholder="Q2 planning brief"
+          placeholder="Product discovery board"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
         />

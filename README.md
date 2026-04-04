@@ -23,7 +23,7 @@ src/
   middleware/
   modules/
     auth/
-    document/
+    whiteboard/
     realtime/
     user/
   types/
@@ -186,31 +186,33 @@ Handshake auth options:
 
 Supported socket events:
 
-- `join_document`
-- `leave_document`
+- `join_whiteboard`
+- `leave_whiteboard`
 - `send_changes`
 - `receive_changes`
 
-`send_changes` broadcasts operational updates to other users in the same document room. If the payload includes the latest `title` and/or `content` snapshot, the backend stores that snapshot in memory and persists it to PostgreSQL with debounce instead of writing on every keystroke.
+`send_changes` broadcasts operational updates to other users in the same whiteboard room. If the payload includes the latest `title` and/or `content` snapshot, the backend stores that snapshot in memory and persists it to PostgreSQL with debounce instead of writing on every keystroke.
 
 ### Users
 
 - `GET /api/v1/users`
 - `GET /api/v1/users/:userId`
 
-### Documents
+### Whiteboards
 
-- `POST /api/v1/documents`
-- `GET /api/v1/documents`
-- `GET /api/v1/documents/:documentId`
-- `PATCH /api/v1/documents/:documentId`
-- `DELETE /api/v1/documents/:documentId`
-- `POST /documents`
-- `GET /documents/:id`
-- `PATCH /documents/:id`
-- `DELETE /documents/:id`
+- `POST /api/v1/whiteboards`
+- `GET /api/v1/whiteboards`
+- `GET /api/v1/whiteboards/:whiteboardId`
+- `PATCH /api/v1/whiteboards/:whiteboardId`
+- `DELETE /api/v1/whiteboards/:whiteboardId`
+- `POST /whiteboards`
+- `GET /whiteboards/:id`
+- `PATCH /whiteboards/:id`
+- `DELETE /whiteboards/:id`
 
-Example create document payload:
+Compatibility aliases remain available at `/documents` and `/api/v1/documents` during the transition.
+
+Example create whiteboard payload:
 
 ```json
 {
@@ -220,7 +222,7 @@ Example create document payload:
 }
 ```
 
-Example update document payload:
+Example update whiteboard payload:
 
 ```json
 {
@@ -235,10 +237,10 @@ Example update document payload:
 - Refresh tokens are stored as SHA-256 hashes in PostgreSQL and rotated on every `/auth/refresh` call.
 - Passwords are hashed with bcrypt before persistence.
 - `GET /auth/me` and user routes are protected with JWT auth middleware.
-- Document routes are JWT-protected; only owners can update or delete, and non-owners can read documents only when `isShared` is `true`.
+- Whiteboard routes are JWT-protected; only owners can update or delete, and non-owners can read whiteboards only when `isShared` is `true`.
 - Realtime scaling uses the Socket.IO Redis adapter, so a reachable Redis instance is required when booting the websocket server.
 - Prisma CLI configuration lives in `prisma.config.ts`, which matches Prisma 7's current setup requirements.
-- The document model includes a `version` field to support future optimistic concurrency or CRDT/event-stream integrations.
+- The whiteboard model includes a `version` field to support future optimistic concurrency or CRDT/event-stream integrations.
 - The server performs graceful shutdown for Prisma, Redis, and the realtime engine.
 
 ## Deployment

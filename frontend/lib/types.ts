@@ -18,7 +18,7 @@ export interface AuthPayload {
   refreshToken: string;
 }
 
-export interface DocumentRecord {
+export interface WhiteboardRecord {
   id: string;
   title: string;
   content: string;
@@ -29,7 +29,7 @@ export interface DocumentRecord {
 }
 
 export interface RealtimeReceiveChangesPayload {
-  documentId: string;
+  whiteboardId: string;
   changes: unknown;
   title?: string;
   content?: string;
@@ -39,7 +39,7 @@ export interface RealtimeReceiveChangesPayload {
 }
 
 export interface RealtimeJoinResponse {
-  documentId: string;
+  whiteboardId: string;
   title: string;
   content: string;
   isShared: boolean;

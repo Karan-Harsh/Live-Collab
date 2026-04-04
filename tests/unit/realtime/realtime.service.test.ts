@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RealtimeService } from '../../../src/modules/realtime/realtime.service';
 
-import type { DocumentView } from '../../../src/modules/document/document.select';
+import type { WhiteboardView } from '../../../src/modules/whiteboard/whiteboard.select';
 
-const createDocument = (overrides: Partial<DocumentView> = {}): DocumentView => {
+const createWhiteboard = (overrides: Partial<WhiteboardView> = {}): WhiteboardView => {
   return {
     id: '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
     title: 'Original title',
@@ -23,18 +23,18 @@ describe('RealtimeService', () => {
   });
 
   it('allows owners to stage changes and flushes them with debounce', async () => {
-    const document = createDocument();
-    const updateDocument = vi.fn().mockResolvedValue(document);
+    const whiteboard = createWhiteboard();
+    const updateWhiteboard = vi.fn().mockResolvedValue(whiteboard);
     const service = new RealtimeService(
       {
-        findById: vi.fn().mockResolvedValue(document),
-        updateDocument,
+        findById: vi.fn().mockResolvedValue(whiteboard),
+        updateWhiteboard,
       },
       250,
     );
 
-    await service.stageDocumentChange(document.ownerId, {
-      documentId: document.id,
+    await service.stageWhiteboardChange(whiteboard.ownerId, {
+      whiteboardId: whiteboard.id,
       changes: {
         ops: [],
       },
@@ -42,45 +42,45 @@ describe('RealtimeService', () => {
       content: 'Updated content',
     });
 
-    expect(updateDocument).not.toHaveBeenCalled();
+    expect(updateWhiteboard).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(250);
 
-    expect(updateDocument).toHaveBeenCalledWith(document.id, {
+    expect(updateWhiteboard).toHaveBeenCalledWith(whiteboard.id, {
       title: 'Updated title',
       content: 'Updated content',
     });
   });
 
   it('denies edit access for non-owners', async () => {
-    const document = createDocument();
+    const whiteboard = createWhiteboard();
     const service = new RealtimeService({
-      findById: vi.fn().mockResolvedValue(document),
-      updateDocument: vi.fn(),
+      findById: vi.fn().mockResolvedValue(whiteboard),
+      updateWhiteboard: vi.fn(),
     });
 
     await expect(
-      service.stageDocumentChange('non-owner-user', {
-        documentId: document.id,
+      service.stageWhiteboardChange('non-owner-user', {
+        whiteboardId: whiteboard.id,
         changes: {
           ops: [],
         },
         content: 'New content',
       }),
-    ).rejects.toThrow('Only the document owner can broadcast changes.');
+    ).rejects.toThrow('Only the whiteboard owner can broadcast changes.');
   });
 
-  it('allows shared documents to be joined by other authenticated users', async () => {
-    const document = createDocument({
+  it('allows shared whiteboards to be joined by other authenticated users', async () => {
+    const whiteboard = createWhiteboard({
       isShared: true,
     });
     const service = new RealtimeService({
-      findById: vi.fn().mockResolvedValue(document),
-      updateDocument: vi.fn(),
+      findById: vi.fn().mockResolvedValue(whiteboard),
+      updateWhiteboard: vi.fn(),
     });
 
-    await expect(service.getJoinState(document.id, 'viewer-user-id')).resolves.toMatchObject({
-      id: document.id,
+    await expect(service.getJoinState(whiteboard.id, 'viewer-user-id')).resolves.toMatchObject({
+      id: whiteboard.id,
       isShared: true,
     });
   });

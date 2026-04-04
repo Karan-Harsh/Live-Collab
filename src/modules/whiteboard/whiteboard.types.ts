@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const createDocumentSchema = z.object({
+export const createWhiteboardSchema = z.object({
   body: z.object({
     title: z.string().trim().min(1).max(255),
     content: z.string().max(100_000).default(''),
@@ -10,7 +10,7 @@ export const createDocumentSchema = z.object({
   query: z.object({}).default({}),
 });
 
-export const getDocumentParamsSchema = z.object({
+export const getWhiteboardParamsSchema = z.object({
   body: z.object({}).default({}),
   params: z.object({
     id: z.string().uuid(),
@@ -18,13 +18,13 @@ export const getDocumentParamsSchema = z.object({
   query: z.object({}).default({}),
 });
 
-export const listDocumentsSchema = z.object({
+export const listWhiteboardsSchema = z.object({
   body: z.object({}).default({}),
   params: z.object({}).default({}),
   query: z.object({}).default({}),
 });
 
-export const updateDocumentSchema = z.object({
+export const updateWhiteboardSchema = z.object({
   body: z
     .object({
       title: z.string().trim().min(1).max(255).optional(),
@@ -44,7 +44,7 @@ export const updateDocumentSchema = z.object({
   query: z.object({}).default({}),
 });
 
-export const deleteDocumentParamsSchema = z.object({
+export const deleteWhiteboardParamsSchema = z.object({
   body: z.object({}).default({}),
   params: z.object({
     id: z.string().uuid(),
@@ -52,7 +52,7 @@ export const deleteDocumentParamsSchema = z.object({
   query: z.object({}).default({}),
 });
 
-export type CreateDocumentDto = z.infer<typeof createDocumentSchema>['body'];
-export type UpdateDocumentDto = z.infer<typeof updateDocumentSchema>['body'];
-export type GetDocumentParams = z.infer<typeof getDocumentParamsSchema>['params'];
-export type DeleteDocumentParams = z.infer<typeof deleteDocumentParamsSchema>['params'];
+export type CreateWhiteboardDto = z.infer<typeof createWhiteboardSchema>['body'];
+export type UpdateWhiteboardDto = z.infer<typeof updateWhiteboardSchema>['body'];
+export type GetWhiteboardParams = z.infer<typeof getWhiteboardParamsSchema>['params'];
+export type DeleteWhiteboardParams = z.infer<typeof deleteWhiteboardParamsSchema>['params'];

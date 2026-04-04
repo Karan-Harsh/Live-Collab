@@ -11,7 +11,7 @@ type RealtimeError = {
 };
 
 type SendChangesPayload = {
-  documentId: string;
+  whiteboardId: string;
   changes: unknown;
   title?: string;
   content?: string;
@@ -22,17 +22,17 @@ type ServerToClientEvents = {
 };
 
 type ClientToServerEvents = {
-  join_document: (
-    payload: { documentId: string },
+  join_whiteboard: (
+    payload: { whiteboardId: string },
     callback?: (response: RealtimeJoinResponse | RealtimeError) => void,
   ) => void;
-  leave_document: (
-    payload: { documentId: string },
-    callback?: (response: { left: true; documentId: string } | RealtimeError) => void,
+  leave_whiteboard: (
+    payload: { whiteboardId: string },
+    callback?: (response: { left: true; whiteboardId: string } | RealtimeError) => void,
   ) => void;
   send_changes: (
     payload: SendChangesPayload,
-    callback?: (response: { queued: true; documentId: string } | RealtimeError) => void,
+    callback?: (response: { queued: true; whiteboardId: string } | RealtimeError) => void,
   ) => void;
 };
 

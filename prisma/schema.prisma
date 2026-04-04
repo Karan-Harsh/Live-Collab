@@ -11,13 +11,13 @@ model User {
   email         String         @unique
   name          String         @db.VarChar(120)
   passwordHash  String         @db.VarChar(255)
-  documents     Document[]
+  whiteboards   Whiteboard[]
   refreshTokens RefreshToken[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
-model Document {
+model Whiteboard {
   id        String   @id @default(uuid()) @db.Uuid
   title     String   @db.VarChar(255)
   content   String   @default("")
@@ -31,6 +31,7 @@ model Document {
   @@index([ownerId])
   @@index([ownerId, createdAt])
   @@index([isShared, createdAt])
+  @@map("Document")
 }
 
 model RefreshToken {

@@ -7,14 +7,18 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { AppShell } from '@/components/app-shell';
 import { RouteGuard } from '@/components/auth/route-guard';
-import { CreateDocumentCard } from '@/components/dashboard/create-document-card';
-import { DocumentCard } from '@/components/dashboard/document-card';
+import { CreateWhiteboardCard } from '@/components/dashboard/create-whiteboard-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { WhiteboardCard } from '@/components/dashboard/whiteboard-card';
 import { getErrorMessage } from '@/lib/error';
 import { getCurrentUser } from '@/services/auth-service';
 import { useAuthStore } from '@/services/auth-store';
-import { createDocument, deleteDocument, listDocuments } from '@/services/document-service';
+import {
+  createWhiteboard,
+  deleteWhiteboard,
+  listWhiteboards,
+} from '@/services/whiteboard-service';
 
 const DashboardPage = () => {
   const router = useRouter();
@@ -33,9 +37,9 @@ const DashboardPage = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const documentsQuery = useQuery({
-    queryKey: ['documents'],
-    queryFn: listDocuments,
+  const whiteboardsQuery = useQuery({
+    queryKey: ['whiteboards'],
+    queryFn: listWhiteboards,
   });
 
   useEffect(() => {
@@ -45,26 +49,26 @@ const DashboardPage = () => {
   }, [meQuery.data, setUser, user]);
 
   const createMutation = useMutation({
-    mutationFn: createDocument,
-    onSuccess: (document) => {
+    mutationFn: createWhiteboard,
+    onSuccess: (whiteboard) => {
       void queryClient.invalidateQueries({
-        queryKey: ['documents'],
+        queryKey: ['whiteboards'],
       });
-      router.push(`/documents/${document.id}`);
+      router.push(`/whiteboards/${whiteboard.id}`);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteDocument,
+    mutationFn: deleteWhiteboard,
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ['documents'],
+        queryKey: ['whiteboards'],
       });
     },
   });
 
   const pageError =
-    documentsQuery.error ?? meQuery.error ?? createMutation.error ?? deleteMutation.error;
+    whiteboardsQuery.error ?? meQuery.error ?? createMutation.error ?? deleteMutation.error;
 
   return (
     <RouteGuard mode="protected">
@@ -78,14 +82,14 @@ const DashboardPage = () => {
                   Good to see you{user?.name ? `, ${user.name}` : ''}.
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-                  Open private drafts, share review-ready documents, and jump back into live rooms
-                  without losing context.
+                  Open private whiteboards, collaborate in live spaces, and keep every session
+                  ready for the richer canvas experience we are building next.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Badge>{documentsQuery.data?.length ?? 0} active docs</Badge>
+              <Badge>{whiteboardsQuery.data?.length ?? 0} active boards</Badge>
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -98,7 +102,7 @@ const DashboardPage = () => {
             </div>
           </header>
 
-          <CreateDocumentCard
+          <CreateWhiteboardCard
             onCreate={createMutation.mutateAsync}
             isPending={createMutation.isPending}
           />
@@ -110,32 +114,32 @@ const DashboardPage = () => {
           ) : null}
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {documentsQuery.isLoading ? (
+            {whiteboardsQuery.isLoading ? (
               Array.from({ length: 3 }).map((_, index) => (
                 <div
                   key={index}
                   className="h-56 animate-pulse rounded-[28px] border border-white/10 bg-white/5"
                 />
               ))
-            ) : documentsQuery.data && documentsQuery.data.length > 0 ? (
-              documentsQuery.data.map((document) => (
-                <DocumentCard
-                  key={document.id}
-                  document={document}
-                  canManage={document.ownerId === user?.id}
-                  deletingDocumentId={deleteMutation.variables ?? null}
-                  onDelete={(documentId) => {
-                    if (window.confirm('Delete this document permanently?')) {
-                      deleteMutation.mutate(documentId);
+            ) : whiteboardsQuery.data && whiteboardsQuery.data.length > 0 ? (
+              whiteboardsQuery.data.map((whiteboard) => (
+                <WhiteboardCard
+                  key={whiteboard.id}
+                  whiteboard={whiteboard}
+                  canManage={whiteboard.ownerId === user?.id}
+                  deletingWhiteboardId={deleteMutation.variables ?? null}
+                  onDelete={(whiteboardId) => {
+                    if (window.confirm('Delete this whiteboard permanently?')) {
+                      deleteMutation.mutate(whiteboardId);
                     }
                   }}
                 />
               ))
             ) : (
               <div className="col-span-full rounded-[32px] border border-dashed border-white/10 bg-panel/60 p-10 text-center">
-                <h2 className="text-xl font-semibold text-white">No documents yet</h2>
+                <h2 className="text-xl font-semibold text-white">No whiteboards yet</h2>
                 <p className="mt-2 text-sm text-muted">
-                  Create your first collaborative document to start the workspace.
+                  Create your first collaborative whiteboard to start the workspace.
                 </p>
               </div>
             )}

@@ -31,18 +31,18 @@ export const AuthShell = ({
             </Badge>
             <div className="space-y-4">
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                Collaborate on living documents without breaking focus.
+                Collaborate on live whiteboards without breaking focus.
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted sm:text-lg">
-                Shared drafting, instant sync, and secure document access for teams that need speed
-                and clarity.
+                Shared whiteboard sessions, instant sync, and secure workspace access for teams
+                that need speed and clarity.
               </p>
             </div>
           </div>
           <div className="grid gap-4 rounded-[28px] border border-white/10 bg-white/5 p-5 sm:grid-cols-3">
             <div>
               <p className="text-2xl font-semibold text-white">Live</p>
-              <p className="text-sm text-muted">Socket-powered document rooms</p>
+              <p className="text-sm text-muted">Socket-powered whiteboard rooms</p>
             </div>
             <div>
               <p className="text-2xl font-semibold text-white">Secure</p>
