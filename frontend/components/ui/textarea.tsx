@@ -6,7 +6,7 @@ export const Textarea = ({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        'w-full rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-text outline-none transition placeholder:text-muted focus:border-accent/50 focus:bg-white/10',
+        'w-full rounded-[26px] border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-text outline-none transition duration-200 placeholder:text-muted focus:border-accent/40 focus:bg-white/[0.08] focus:shadow-[0_0_0_4px_rgba(94,234,212,0.08)]',
         className,
       )}
       {...props}

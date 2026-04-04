@@ -113,24 +113,69 @@ const DashboardPage = () => {
   return (
     <RouteGuard mode="protected">
       <AppShell>
-        <div className="space-y-6">
-          <header className="flex flex-col gap-5 rounded-[32px] border border-white/10 bg-panel/75 p-6 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
-              <Badge className="border-accent/20 bg-accent/10 text-accent">Team dashboard</Badge>
-              <div>
-                <h1 className="text-3xl font-semibold text-white sm:text-4xl">
-                  Good to see you{user?.name ? `, ${user.name}` : ''}.
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-                  Open private whiteboards, collaborate in live spaces, and keep every session
-                  ready for the richer canvas experience we are building next.
-                </p>
+        <div className="space-y-8">
+          <header className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+            <section className="overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(9,20,31,0.9),rgba(9,18,28,0.72))] p-7 shadow-[0_30px_100px_rgba(2,6,23,0.34)] backdrop-blur sm:p-8">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className="border-accent/20 bg-accent/10 text-accent">Studio dashboard</Badge>
+                <Badge className="border-[#f6c177]/20 bg-[#f6c177]/10 text-[#f6c177]">
+                  Invite-only collaboration
+                </Badge>
               </div>
-            </div>
+              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
+                Good to see you{user?.name ? `, ${user.name}` : ''}. Your boards are ready for the next session.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
+                Open private whiteboards, accept invited rooms, and move directly into the new visual
+                canvas without losing the structure of your workspace.
+              </p>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge>{whiteboardsQuery.data?.length ?? 0} active boards</Badge>
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Active boards
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-white">
+                    {whiteboardsQuery.data?.length ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Pending invites
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-white">
+                    {invitationsQuery.data?.length ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Collaboration mode
+                  </p>
+                  <p className="mt-3 text-lg font-semibold text-white">Private by design</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,22,33,0.88),rgba(8,18,28,0.74))] p-6 shadow-[0_28px_90px_rgba(2,6,23,0.3)] backdrop-blur">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accentSky">
+                Workspace controls
+              </p>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-sm font-medium text-white">Session state</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    Your dashboard reflects live invitation state and board access as it changes.
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-sm font-medium text-white">Account</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    Signed in as {user?.email ?? 'your workspace account'}.
+                  </p>
+                </div>
+              </div>
               <Button
+                className="mt-6 w-full"
                 variant="secondary"
                 onClick={() => {
                   clearSession();
@@ -139,21 +184,23 @@ const DashboardPage = () => {
               >
                 Log out
               </Button>
-            </div>
+            </section>
           </header>
 
-          <InvitationInbox
-            invitations={invitationsQuery.data ?? []}
-            acceptingInvitationId={acceptMutation.variables ?? null}
-            decliningInvitationId={declineMutation.variables ?? null}
-            onAccept={(invitationId) => acceptMutation.mutate(invitationId)}
-            onDecline={(invitationId) => declineMutation.mutate(invitationId)}
-          />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+            <InvitationInbox
+              invitations={invitationsQuery.data ?? []}
+              acceptingInvitationId={acceptMutation.variables ?? null}
+              decliningInvitationId={declineMutation.variables ?? null}
+              onAccept={(invitationId) => acceptMutation.mutate(invitationId)}
+              onDecline={(invitationId) => declineMutation.mutate(invitationId)}
+            />
 
-          <CreateWhiteboardCard
-            onCreate={createMutation.mutateAsync}
-            isPending={createMutation.isPending}
-          />
+            <CreateWhiteboardCard
+              onCreate={createMutation.mutateAsync}
+              isPending={createMutation.isPending}
+            />
+          </div>
 
           {pageError ? (
             <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -184,10 +231,12 @@ const DashboardPage = () => {
                 />
               ))
             ) : (
-              <div className="col-span-full rounded-[32px] border border-dashed border-white/10 bg-panel/60 p-10 text-center">
-                <h2 className="text-xl font-semibold text-white">No whiteboards yet</h2>
-                <p className="mt-2 text-sm text-muted">
-                  Create your first collaborative whiteboard to start the workspace.
+              <div className="col-span-full rounded-[36px] border border-dashed border-white/10 bg-[linear-gradient(180deg,rgba(10,22,33,0.72),rgba(8,18,28,0.58))] p-12 text-center">
+                <h2 className="text-2xl font-semibold tracking-[-0.03em] text-white">
+                  No whiteboards yet
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Create the first private board and turn this empty studio into a working room.
                 </p>
               </div>
             )}
