@@ -8,12 +8,18 @@ import { useShallow } from 'zustand/react/shallow';
 import { AppShell } from '@/components/app-shell';
 import { RouteGuard } from '@/components/auth/route-guard';
 import { CreateWhiteboardCard } from '@/components/dashboard/create-whiteboard-card';
+import { InvitationInbox } from '@/components/dashboard/invitation-inbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { WhiteboardCard } from '@/components/dashboard/whiteboard-card';
 import { getErrorMessage } from '@/lib/error';
 import { getCurrentUser } from '@/services/auth-service';
 import { useAuthStore } from '@/services/auth-store';
+import {
+  acceptInvitation,
+  declineInvitation,
+  listInvitations,
+} from '@/services/invitation-service';
 import {
   createWhiteboard,
   deleteWhiteboard,
@@ -42,6 +48,11 @@ const DashboardPage = () => {
     queryFn: listWhiteboards,
   });
 
+  const invitationsQuery = useQuery({
+    queryKey: ['invitations'],
+    queryFn: listInvitations,
+  });
+
   useEffect(() => {
     if (meQuery.data && (!user || meQuery.data.id !== user.id)) {
       setUser(meQuery.data);
@@ -67,8 +78,37 @@ const DashboardPage = () => {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: acceptInvitation,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invitations'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['whiteboards'],
+        }),
+      ]);
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: declineInvitation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['invitations'],
+      });
+    },
+  });
+
   const pageError =
-    whiteboardsQuery.error ?? meQuery.error ?? createMutation.error ?? deleteMutation.error;
+    whiteboardsQuery.error ??
+    invitationsQuery.error ??
+    meQuery.error ??
+    createMutation.error ??
+    deleteMutation.error ??
+    acceptMutation.error ??
+    declineMutation.error;
 
   return (
     <RouteGuard mode="protected">
@@ -101,6 +141,14 @@ const DashboardPage = () => {
               </Button>
             </div>
           </header>
+
+          <InvitationInbox
+            invitations={invitationsQuery.data ?? []}
+            acceptingInvitationId={acceptMutation.variables ?? null}
+            decliningInvitationId={declineMutation.variables ?? null}
+            onAccept={(invitationId) => acceptMutation.mutate(invitationId)}
+            onDecline={(invitationId) => declineMutation.mutate(invitationId)}
+          />
 
           <CreateWhiteboardCard
             onCreate={createMutation.mutateAsync}

@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { logRealtimeEvent } from './realtime.logger';
 import { realtimeService } from './realtime.service';
 import { joinDocumentSchema, leaveDocumentSchema, sendChangesSchema } from './realtime.types';
+import { whiteboardService } from '../whiteboard/whiteboard.service';
 
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
@@ -44,8 +45,25 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         whiteboardId: whiteboard.id,
         title: whiteboard.title,
         content: whiteboard.content,
-        isShared: whiteboard.isShared,
         ownerId: whiteboard.ownerId,
+        accessRole: whiteboardService.isWhiteboardOwner(whiteboard, socket.data.authUser.userId)
+          ? 'owner'
+          : 'collaborator',
+        permissions: {
+          canEdit: whiteboardService.canEditWhiteboard(whiteboard, socket.data.authUser.userId),
+          canDelete: whiteboardService.isWhiteboardOwner(
+            whiteboard,
+            socket.data.authUser.userId,
+          ),
+          canInvite: whiteboardService.isWhiteboardOwner(
+            whiteboard,
+            socket.data.authUser.userId,
+          ),
+          canManageAccess: whiteboardService.isWhiteboardOwner(
+            whiteboard,
+            socket.data.authUser.userId,
+          ),
+        },
       });
     } catch (error) {
       callback?.({

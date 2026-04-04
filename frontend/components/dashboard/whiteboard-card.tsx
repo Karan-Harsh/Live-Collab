@@ -28,13 +28,16 @@ export const WhiteboardCard = ({
               {whiteboard.content || 'No board content yet. Open the workspace to start shaping ideas.'}
             </p>
           </div>
-          <Badge
-            className={whiteboard.isShared ? 'text-accent border-accent/20 bg-accent/10' : ''}
-          >
-            {whiteboard.isShared ? 'Shared' : 'Private'}
+          <Badge className="border-accent/20 bg-accent/10 text-accent">
+            {whiteboard.accessRole === 'owner' ? 'Owner' : 'Collaborator'}
           </Badge>
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-muted">
+          <span>{whiteboard.collaborators.length} collaborators</span>
+          {whiteboard.pendingInvites.length > 0 ? (
+            <span>{whiteboard.pendingInvites.length} pending invites</span>
+          ) : null}
+          <span>Owner {whiteboard.owner.name}</span>
           <span>Created {new Date(whiteboard.createdAt).toLocaleDateString()}</span>
           <span>Updated {new Date(whiteboard.updatedAt).toLocaleString()}</span>
         </div>
@@ -54,7 +57,7 @@ export const WhiteboardCard = ({
             {deletingWhiteboardId === whiteboard.id ? 'Deleting...' : 'Delete'}
           </Button>
         ) : (
-          <span className="text-xs text-muted">Shared access</span>
+          <span className="text-xs text-muted">Invited collaborator</span>
         )}
       </div>
     </article>

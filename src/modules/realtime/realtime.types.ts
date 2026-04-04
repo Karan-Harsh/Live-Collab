@@ -36,8 +36,14 @@ export interface JoinDocumentSuccessPayload {
   whiteboardId: string;
   title: string;
   content: string;
-  isShared: boolean;
   ownerId: string;
+  accessRole: 'owner' | 'collaborator';
+  permissions: {
+    canEdit: boolean;
+    canDelete: boolean;
+    canInvite: boolean;
+    canManageAccess: boolean;
+  };
 }
 
 export interface RealtimeErrorPayload {

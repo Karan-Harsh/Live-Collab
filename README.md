@@ -217,8 +217,7 @@ Example create whiteboard payload:
 ```json
 {
   "title": "Sprint Notes",
-  "content": "Initial collaborative draft",
-  "isShared": false
+  "content": "Initial collaborative draft"
 }
 ```
 
@@ -227,8 +226,22 @@ Example update whiteboard payload:
 ```json
 {
   "title": "Sprint Notes v2",
-  "content": "Updated content",
-  "isShared": true
+  "content": "Updated content"
+}
+```
+
+### Invitations
+
+- `GET /invitations`
+- `POST /invitations/whiteboards/:id`
+- `POST /invitations/:invitationId/accept`
+- `POST /invitations/:invitationId/decline`
+
+Example create invitation payload:
+
+```json
+{
+  "email": "teammate@example.com"
 }
 ```
 
@@ -237,7 +250,9 @@ Example update whiteboard payload:
 - Refresh tokens are stored as SHA-256 hashes in PostgreSQL and rotated on every `/auth/refresh` call.
 - Passwords are hashed with bcrypt before persistence.
 - `GET /auth/me` and user routes are protected with JWT auth middleware.
-- Whiteboard routes are JWT-protected; only owners can update or delete, and non-owners can read whiteboards only when `isShared` is `true`.
+- Whiteboards are private by default; only owners and accepted collaborators can access them.
+- Only owners can invite collaborators or delete a whiteboard.
+- Accepted collaborators can edit whiteboards and participate in realtime sessions.
 - Realtime scaling uses the Socket.IO Redis adapter, so a reachable Redis instance is required when booting the websocket server.
 - Prisma CLI configuration lives in `prisma.config.ts`, which matches Prisma 7's current setup requirements.
 - The whiteboard model includes a `version` field to support future optimistic concurrency or CRDT/event-stream integrations.

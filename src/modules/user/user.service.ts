@@ -15,6 +15,16 @@ class UserService {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<PublicUser> {
+    const user = await userRepository.findByEmail(email);
+
+    if (!user) {
+      throw createHttpError(404, 'No registered user found for that email address.');
+    }
+
+    return user;
+  }
+
   async listUsers(): Promise<PublicUser[]> {
     return userRepository.listUsers();
   }

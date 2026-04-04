@@ -1,17 +1,17 @@
-import { whiteboardSelect, type WhiteboardView } from './whiteboard.select';
+import { whiteboardSelect, type WhiteboardRecord } from './whiteboard.select';
 import { prisma } from '../../config/prisma';
 
 import type { Prisma } from '@prisma/client';
 
 class WhiteboardRepository {
-  async createWhiteboard(data: Prisma.WhiteboardUncheckedCreateInput): Promise<WhiteboardView> {
+  async createWhiteboard(data: Prisma.WhiteboardUncheckedCreateInput): Promise<WhiteboardRecord> {
     return prisma.whiteboard.create({
       data,
       select: whiteboardSelect,
     });
   }
 
-  async findById(whiteboardId: string): Promise<WhiteboardView | null> {
+  async findById(whiteboardId: string): Promise<WhiteboardRecord | null> {
     return prisma.whiteboard.findUnique({
       select: whiteboardSelect,
       where: {
@@ -20,7 +20,7 @@ class WhiteboardRepository {
     });
   }
 
-  async listAccessibleWhiteboards(userId: string): Promise<WhiteboardView[]> {
+  async listAccessibleWhiteboards(userId: string): Promise<WhiteboardRecord[]> {
     return prisma.whiteboard.findMany({
       select: whiteboardSelect,
       where: {
@@ -29,7 +29,11 @@ class WhiteboardRepository {
             ownerId: userId,
           },
           {
-            isShared: true,
+            collaborators: {
+              some: {
+                userId,
+              },
+            },
           },
         ],
       },
@@ -42,7 +46,7 @@ class WhiteboardRepository {
   async updateWhiteboard(
     whiteboardId: string,
     data: Prisma.WhiteboardUpdateInput,
-  ): Promise<WhiteboardView> {
+  ): Promise<WhiteboardRecord> {
     return prisma.whiteboard.update({
       select: whiteboardSelect,
       where: {

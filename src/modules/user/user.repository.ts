@@ -11,6 +11,15 @@ class UserRepository {
     });
   }
 
+  async findByEmail(email: string): Promise<PublicUser | null> {
+    return prisma.user.findUnique({
+      select: publicUserSelect,
+      where: {
+        email,
+      },
+    });
+  }
+
   async existsById(userId: string): Promise<boolean> {
     const count = await prisma.user.count({
       where: {

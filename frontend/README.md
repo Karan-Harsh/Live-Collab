@@ -64,12 +64,14 @@ The backend should be running with:
 - Signup and login flows connected to backend auth endpoints
 - Persisted auth session with automatic access-token refresh
 - Dashboard with whiteboard listing, creation, and deletion
+- Dashboard inbox for pending in-app whiteboard invitations
 - Realtime whiteboard page with Socket.IO room join/leave and live content sync
-- Share toggle and protected routes
+- Owner invite panel and collaborator-aware protected routes
 
 ## Notes
 
 - The editor uses a snapshot-based textarea approach for clarity and reliability.
+- Whiteboards are private by default and open up through in-app invitations only.
 - Local edits broadcast through Socket.IO and rely on the backend's debounced persistence strategy.
 - The UI is optimized for dark-mode SaaS styling and responsive layouts.
 

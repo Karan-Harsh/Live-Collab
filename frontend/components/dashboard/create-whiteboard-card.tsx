@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { getErrorMessage } from '@/lib/error';
 
 interface CreateWhiteboardCardProps {
-  onCreate: (input: { title: string; content: string; isShared: boolean }) => Promise<unknown>;
+  onCreate: (input: { title: string; content: string }) => Promise<unknown>;
   isPending: boolean;
 }
 
 export const CreateWhiteboardCard = ({ onCreate, isPending }: CreateWhiteboardCardProps) => {
   const [title, setTitle] = useState('');
-  const [isShared, setIsShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (): Promise<void> => {
@@ -23,10 +22,8 @@ export const CreateWhiteboardCard = ({ onCreate, isPending }: CreateWhiteboardCa
       await onCreate({
         title,
         content: '',
-        isShared,
       });
       setTitle('');
-      setIsShared(false);
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     }
@@ -34,7 +31,7 @@ export const CreateWhiteboardCard = ({ onCreate, isPending }: CreateWhiteboardCa
 
   return (
     <div className="rounded-[28px] border border-white/10 bg-panel/80 p-6 backdrop-blur">
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-5 flex flex-col gap-2">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accent">
             New Whiteboard
@@ -42,16 +39,10 @@ export const CreateWhiteboardCard = ({ onCreate, isPending }: CreateWhiteboardCa
           <h2 className="mt-2 text-2xl font-semibold text-white">
             Start a fresh collaboration space
           </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            New boards start private and can be shared later through in-app invitations.
+          </p>
         </div>
-        <label className="inline-flex items-center gap-3 text-sm text-muted">
-          <input
-            type="checkbox"
-            checked={isShared}
-            onChange={(event) => setIsShared(event.target.checked)}
-            className="h-4 w-4 rounded border-white/10 bg-white/5 text-accent focus:ring-accent/50"
-          />
-          Shared with authenticated viewers
-        </label>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">

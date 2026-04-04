@@ -1,15 +1,17 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { CollaborationPanel } from '@/components/editor/collaboration-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage } from '@/lib/error';
 import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime-service';
+import { createInvitation } from '@/services/invitation-service';
 import { deleteWhiteboard, updateWhiteboard } from '@/services/whiteboard-service';
 
 import type { RealtimeReceiveChangesPayload, WhiteboardRecord } from '@/lib/types';
@@ -29,29 +31,35 @@ export const CollaborativeEditor = ({
   currentUserId,
 }: CollaborativeEditorProps) => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const socketRef = useRef<ReturnType<typeof getRealtimeSocket> | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
 
   const [title, setTitle] = useState(whiteboard.title);
   const [content, setContent] = useState(whiteboard.content);
-  const [isShared, setIsShared] = useState(whiteboard.isShared);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [error, setError] = useState<string | null>(null);
-  const canEdit = whiteboard.ownerId === currentUserId;
+  const canEdit = whiteboard.permissions.canEdit;
+  const canDelete = whiteboard.permissions.canDelete;
+  const canInvite = whiteboard.permissions.canInvite;
 
-  const updateMutation = useMutation({
-    mutationFn: (nextSharedState: boolean) =>
-      updateWhiteboard(whiteboard.id, {
-        isShared: nextSharedState,
-      }),
-    onSuccess: (updatedWhiteboard) => {
-      setIsShared(updatedWhiteboard.isShared);
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => createInvitation(whiteboard.id, email),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['whiteboard', whiteboard.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invitations'],
+        }),
+      ]);
     },
     onError: (mutationError) => {
-      setIsShared(whiteboard.isShared);
       setError(getErrorMessage(mutationError));
+      throw mutationError;
     },
   });
 
@@ -69,9 +77,8 @@ export const CollaborativeEditor = ({
   useEffect(() => {
     setTitle(whiteboard.title);
     setContent(whiteboard.content);
-    setIsShared(whiteboard.isShared);
     suppressBroadcastRef.current = true;
-  }, [whiteboard.content, whiteboard.isShared, whiteboard.title]);
+  }, [whiteboard.content, whiteboard.title]);
 
   useEffect(() => {
     const socket = getRealtimeSocket(accessToken);
@@ -119,7 +126,6 @@ export const CollaborativeEditor = ({
       suppressBroadcastRef.current = true;
       setTitle(response.title);
       setContent(response.content);
-      setIsShared(response.isShared);
       setConnectionState('live');
     });
 
@@ -215,7 +221,7 @@ export const CollaborativeEditor = ({
                   : 'Realtime offline'}
             </Badge>
             <Badge>{syncLabel}</Badge>
-            <Badge>{isShared ? 'Shared whiteboard' : 'Private whiteboard'}</Badge>
+            <Badge>{whiteboard.accessRole === 'owner' ? 'Owner access' : 'Collaborator access'}</Badge>
           </div>
           <p className="text-sm text-muted">
             Changes broadcast to everyone in this workspace and persist with a debounced backend
@@ -224,24 +230,10 @@ export const CollaborativeEditor = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="inline-flex items-center gap-3 text-sm text-muted">
-            <input
-              type="checkbox"
-              checked={isShared}
-              disabled={!canEdit || updateMutation.isPending}
-              onChange={(event) => {
-                const nextSharedState = event.target.checked;
-                setIsShared(nextSharedState);
-                updateMutation.mutate(nextSharedState);
-              }}
-              className="h-4 w-4 rounded border-white/10 bg-white/5 text-accent focus:ring-accent/50"
-            />
-            Share with authenticated viewers
-          </label>
           <Button variant="secondary" onClick={() => router.push('/dashboard')}>
             Back to dashboard
           </Button>
-          {canEdit ? (
+          {canDelete ? (
             <Button
               variant="danger"
               onClick={() => {
@@ -264,32 +256,41 @@ export const CollaborativeEditor = ({
 
       {!canEdit ? (
         <div className="rounded-2xl border border-accentSky/20 bg-accentSky/10 px-4 py-3 text-sm text-accentSky">
-          You have shared read access to this whiteboard. Only the owner can edit, share, or
-          delete it.
+          Your access is currently view-only. Only collaborators with edit access can change this
+          whiteboard.
         </div>
       ) : null}
 
-      <div className="grid gap-5 rounded-[32px] border border-white/10 bg-panelSoft/80 p-5 backdrop-blur">
-        <div className="grid gap-3">
-          <label className="text-sm font-medium text-muted">Whiteboard title</label>
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            className="text-lg font-semibold"
-            readOnly={!canEdit}
-          />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-5 rounded-[32px] border border-white/10 bg-panelSoft/80 p-5 backdrop-blur">
+          <div className="grid gap-3">
+            <label className="text-sm font-medium text-muted">Whiteboard title</label>
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="text-lg font-semibold"
+              readOnly={!canEdit}
+            />
+          </div>
+
+          <div className="grid gap-3">
+            <label className="text-sm font-medium text-muted">Board data</label>
+            <Textarea
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              className="min-h-[62vh] resize-none font-mono text-[15px] leading-7"
+              placeholder="This temporary surface will become the visual whiteboard canvas next."
+              readOnly={!canEdit}
+            />
+          </div>
         </div>
 
-        <div className="grid gap-3">
-          <label className="text-sm font-medium text-muted">Board data</label>
-          <Textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            className="min-h-[62vh] resize-none font-mono text-[15px] leading-7"
-            placeholder="This temporary surface will become the visual whiteboard canvas next."
-            readOnly={!canEdit}
-          />
-        </div>
+        <CollaborationPanel
+          whiteboard={whiteboard}
+          canInvite={canInvite}
+          isInviting={inviteMutation.isPending}
+          onInvite={inviteMutation.mutateAsync}
+        />
       </div>
     </div>
   );

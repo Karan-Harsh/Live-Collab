@@ -3,9 +3,10 @@ import createHttpError from 'http-errors';
 import { logRealtimeEvent } from './realtime.logger';
 import { env } from '../../config/env';
 import { whiteboardRepository } from '../whiteboard/whiteboard.repository';
+import { whiteboardService } from '../whiteboard/whiteboard.service';
 
 import type { SendChangesPayload } from './realtime.types';
-import type { WhiteboardView } from '../whiteboard/whiteboard.select';
+import type { WhiteboardRecord } from '../whiteboard/whiteboard.select';
 import type { Prisma } from '@prisma/client';
 
 interface BufferedWhiteboardState {
@@ -15,11 +16,11 @@ interface BufferedWhiteboardState {
 }
 
 interface WhiteboardPersistenceGateway {
-  findById(whiteboardId: string): Promise<WhiteboardView | null>;
+  findById(whiteboardId: string): Promise<WhiteboardRecord | null>;
   updateWhiteboard(
     whiteboardId: string,
     data: Prisma.WhiteboardUpdateInput,
-  ): Promise<WhiteboardView>;
+  ): Promise<WhiteboardRecord>;
 }
 
 export class RealtimeService {
@@ -31,7 +32,7 @@ export class RealtimeService {
     private readonly debounceMs: number = env.REALTIME_PERSIST_DEBOUNCE_MS,
   ) {}
 
-  async getJoinState(whiteboardId: string, requesterId: string): Promise<WhiteboardView> {
+  async getJoinState(whiteboardId: string, requesterId: string): Promise<WhiteboardRecord> {
     const whiteboard = await this.getAccessibleWhiteboard(whiteboardId, requesterId);
     const bufferedState = this.whiteboardBuffers.get(whiteboardId);
 
@@ -108,35 +109,35 @@ export class RealtimeService {
   private async getAccessibleWhiteboard(
     whiteboardId: string,
     requesterId: string,
-  ): Promise<WhiteboardView> {
+  ): Promise<WhiteboardRecord> {
     const whiteboard = await this.persistence.findById(whiteboardId);
 
     if (!whiteboard) {
       throw createHttpError(404, 'Whiteboard not found.');
     }
 
-    if (whiteboard.ownerId !== requesterId && !whiteboard.isShared) {
+    if (!whiteboardService.canAccessWhiteboard(whiteboard, requesterId)) {
       throw createHttpError(403, 'You do not have access to this whiteboard.');
     }
 
     return whiteboard;
   }
 
-  private async ensureCanEdit(whiteboardId: string, requesterId: string): Promise<WhiteboardView> {
+  private async ensureCanEdit(whiteboardId: string, requesterId: string): Promise<WhiteboardRecord> {
     const whiteboard = await this.persistence.findById(whiteboardId);
 
     if (!whiteboard) {
       throw createHttpError(404, 'Whiteboard not found.');
     }
 
-    if (whiteboard.ownerId !== requesterId) {
-      throw createHttpError(403, 'Only the whiteboard owner can broadcast changes.');
+    if (!whiteboardService.canEditWhiteboard(whiteboard, requesterId)) {
+      throw createHttpError(403, 'Only the owner or an accepted collaborator can broadcast changes.');
     }
 
     return whiteboard;
   }
 
-  private getOrCreateBuffer(whiteboard: WhiteboardView): BufferedWhiteboardState {
+  private getOrCreateBuffer(whiteboard: WhiteboardRecord): BufferedWhiteboardState {
     const existingBuffer = this.whiteboardBuffers.get(whiteboard.id);
 
     if (existingBuffer) {

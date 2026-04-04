@@ -7,13 +7,11 @@ import type { WhiteboardRecord } from '@/lib/types';
 interface CreateWhiteboardInput {
   title: string;
   content: string;
-  isShared: boolean;
 }
 
 interface UpdateWhiteboardInput {
   title?: string;
   content?: string;
-  isShared?: boolean;
 }
 
 export const listWhiteboards = async (): Promise<WhiteboardRecord[]> => {

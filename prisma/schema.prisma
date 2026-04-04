@@ -6,32 +6,82 @@ datasource db {
   provider = "postgresql"
 }
 
+enum WhiteboardCollaboratorRole {
+  EDITOR
+}
+
+enum WhiteboardInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  email         String         @unique
-  name          String         @db.VarChar(120)
-  passwordHash  String         @db.VarChar(255)
-  whiteboards   Whiteboard[]
-  refreshTokens RefreshToken[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                          String                   @id @default(uuid()) @db.Uuid
+  email                       String                   @unique
+  name                        String                   @db.VarChar(120)
+  passwordHash                String                   @db.VarChar(255)
+  ownedWhiteboards            Whiteboard[]             @relation("WhiteboardOwner")
+  whiteboardCollaborations    WhiteboardCollaborator[]
+  sentWhiteboardInvites       WhiteboardInvite[]       @relation("WhiteboardInviteSender")
+  receivedWhiteboardInvites   WhiteboardInvite[]       @relation("WhiteboardInviteRecipient")
+  invitedWhiteboardMembers    WhiteboardCollaborator[] @relation("WhiteboardCollaboratorInviter")
+  refreshTokens               RefreshToken[]
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
 }
 
 model Whiteboard {
-  id        String   @id @default(uuid()) @db.Uuid
-  title     String   @db.VarChar(255)
-  content   String   @default("")
-  isShared  Boolean  @default(false)
-  version   Int      @default(1)
-  ownerId   String   @db.Uuid
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String                   @id @default(uuid()) @db.Uuid
+  title         String                   @db.VarChar(255)
+  content       String                   @default("")
+  version       Int                      @default(1)
+  ownerId       String                   @db.Uuid
+  owner         User                     @relation("WhiteboardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators WhiteboardCollaborator[]
+  invites       WhiteboardInvite[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@index([ownerId])
   @@index([ownerId, createdAt])
-  @@index([isShared, createdAt])
   @@map("Document")
+}
+
+model WhiteboardCollaborator {
+  id           String                     @id @default(uuid()) @db.Uuid
+  whiteboardId String                     @db.Uuid
+  userId       String                     @db.Uuid
+  role         WhiteboardCollaboratorRole @default(EDITOR)
+  invitedById  String?                    @db.Uuid
+  whiteboard   Whiteboard                 @relation(fields: [whiteboardId], references: [id], onDelete: Cascade)
+  user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy    User?                      @relation("WhiteboardCollaboratorInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  @@unique([whiteboardId, userId])
+  @@index([userId, createdAt])
+  @@index([whiteboardId, createdAt])
+}
+
+model WhiteboardInvite {
+  id           String                @id @default(uuid()) @db.Uuid
+  whiteboardId String                @db.Uuid
+  inviterId    String                @db.Uuid
+  recipientId  String                @db.Uuid
+  status       WhiteboardInviteStatus @default(PENDING)
+  respondedAt  DateTime?
+  whiteboard   Whiteboard            @relation(fields: [whiteboardId], references: [id], onDelete: Cascade)
+  inviter      User                  @relation("WhiteboardInviteSender", fields: [inviterId], references: [id], onDelete: Cascade)
+  recipient    User                  @relation("WhiteboardInviteRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([whiteboardId, recipientId])
+  @@index([recipientId, status, createdAt])
+  @@index([whiteboardId, status, createdAt])
 }
 
 model RefreshToken {
