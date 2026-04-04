@@ -9,6 +9,7 @@ import { WhiteboardCanvas } from '@/components/editor/whiteboard-canvas';
 import { WhiteboardToolbar } from '@/components/editor/whiteboard-toolbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage } from '@/lib/error';
 import {
   buildSceneSnapshotChangeSummary,
@@ -138,6 +139,34 @@ const downloadFile = (filename: string, content: string, type: string): void => 
   URL.revokeObjectURL(objectUrl);
 };
 
+const getSelectionLabel = (
+  selectedElementsCount: number,
+  selectedElementType: string | undefined,
+): string => {
+  if (selectedElementsCount > 1) {
+    return `${selectedElementsCount} elements selected`;
+  }
+
+  switch (selectedElementType) {
+    case 'text':
+      return 'Text block';
+    case 'note':
+      return 'Sticky note';
+    case 'rectangle':
+      return 'Rectangle';
+    case 'ellipse':
+      return 'Ellipse';
+    case 'arrow':
+      return 'Arrow';
+    case 'stroke':
+      return 'Drawing';
+    case 'image':
+      return 'Image';
+    default:
+      return 'Element';
+  }
+};
+
 export const CollaborativeEditor = ({
   whiteboard,
   accessToken,
@@ -183,6 +212,9 @@ export const CollaborativeEditor = ({
   const canInvite = whiteboard.permissions.canInvite;
   const selectedElements = scene.elements.filter((element) => selectedElementIds.includes(element.id));
   const selectedElement = selectedElements.at(-1) ?? null;
+  const editableTextElement =
+    selectedElement?.type === 'note' || selectedElement?.type === 'text' ? selectedElement : null;
+  const selectionLabel = getSelectionLabel(selectedElements.length, selectedElement?.type);
   const serializedScene = serializeScene(scene);
   const activeCollaborators = useMemo(() => {
     const knownUsers = [whiteboard.owner, ...whiteboard.collaborators.map((collaborator) => collaborator.user)];
@@ -749,36 +781,6 @@ export const CollaborativeEditor = ({
     setSelectedElementIds([]);
   };
 
-  const handleEditSelectedNote = (): void => {
-    if (
-      !selectedElement ||
-      (selectedElement.type !== 'note' && selectedElement.type !== 'text') ||
-      !canEdit
-    ) {
-      return;
-    }
-
-    const nextText = window.prompt(
-      selectedElement.type === 'note' ? 'Edit note' : 'Edit text',
-      selectedElement.text,
-    );
-
-    if (nextText === null) {
-      return;
-    }
-
-    setScene((currentScene) =>
-      upsertElement(
-        currentScene,
-        {
-          ...selectedElement,
-          text: nextText.trim().length > 0 ? nextText : selectedElement.text,
-          updatedAt: new Date().toISOString(),
-        },
-      ),
-    );
-  };
-
   const handleUpdateSelectedTextContent = (text: string): void => {
     if (
       !selectedElement ||
@@ -888,8 +890,8 @@ export const CollaborativeEditor = ({
         onCursorActivity={handleCursorActivity}
       />
 
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex items-start justify-between gap-4">
-        <div className="pointer-events-auto w-full max-w-[420px] rounded-[28px] border border-white/12 bg-[#080808] px-5 py-4 shadow-[0_22px_80px_rgba(0,0,0,0.36)]">
+      <div className="pointer-events-none absolute left-4 top-4 z-20 w-full max-w-[360px]">
+        <div className="pointer-events-auto rounded-[28px] border border-white/12 bg-[#080808] px-5 py-4 shadow-[0_22px_80px_rgba(0,0,0,0.36)]">
           <div className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] ${connectionMeta.textClassName}`}>
             <span className={`h-2 w-2 rounded-full ${connectionMeta.dotClassName}`} />
             <span>{connectionMeta.label}</span>
@@ -918,13 +920,40 @@ export const CollaborativeEditor = ({
 
           <p className="mt-3 text-sm leading-6 text-white/45">
             {canEdit
-              ? 'Use the left toolbar to draw, place shapes, add text, or insert images.'
+              ? 'Use the top toolbar to draw, place shapes, add text, or insert images.'
               : 'You can explore this board, export it, or duplicate it into your own workspace.'}
           </p>
         </div>
+      </div>
 
-        <div className="pointer-events-auto flex flex-col items-end gap-3">
-          <div className="flex min-w-[260px] items-center gap-3 rounded-[24px] border border-white/12 bg-[#080808] px-3 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
+      <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2">
+        <div className="pointer-events-auto">
+          <WhiteboardToolbar
+            tool={tool}
+            canEdit={canEdit}
+            zoom={viewport.zoom}
+            onToolChange={setTool}
+            onZoomIn={() =>
+              setViewport((currentViewport) => ({
+                ...currentViewport,
+                zoom: clampViewportZoom(currentViewport.zoom + 0.1),
+              }))
+            }
+            onZoomOut={() =>
+              setViewport((currentViewport) => ({
+                ...currentViewport,
+                zoom: clampViewportZoom(currentViewport.zoom - 0.1),
+              }))
+            }
+            onResetView={() => setViewport(defaultViewport)}
+            onUploadImage={handleUploadRequested}
+          />
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute right-4 top-4 z-20 w-full max-w-[320px]">
+        <div className="pointer-events-auto rounded-[24px] border border-white/12 bg-[#080808] px-4 py-3 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
+          <div className="flex items-center gap-3">
             <div className="flex items-center">
               {activeCollaborators.slice(0, 3).map((user, index) => (
                 <span
@@ -967,37 +996,84 @@ export const CollaborativeEditor = ({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-4 top-[156px] z-20">
-        <div className="pointer-events-auto max-h-[calc(100vh-11rem)] max-w-[calc(100vw-2rem)] overflow-y-auto">
-          <WhiteboardToolbar
-            tool={tool}
-            canEdit={canEdit}
-            zoom={viewport.zoom}
-            selectedElements={selectedElements}
-            onToolChange={setTool}
-            onZoomIn={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom + 0.1),
-              }))
-            }
-            onZoomOut={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom - 0.1),
-              }))
-            }
-            onResetView={() => setViewport(defaultViewport)}
-            onDeleteSelected={handleDeleteSelected}
-            onEditSelectedNote={handleEditSelectedNote}
-            onUpdateSelectedTextContent={handleUpdateSelectedTextContent}
-            onUploadImage={handleUploadRequested}
-            onDuplicateSelected={handleDuplicateSelected}
-            onBringToFront={handleBringToFront}
-            onSendToBack={handleSendToBack}
-          />
+      {selectedElements.length > 0 ? (
+        <div className="pointer-events-none absolute right-4 top-[96px] z-20 w-full max-w-[320px]">
+          <div className="pointer-events-auto max-h-[calc(100vh-14rem)] overflow-y-auto rounded-[24px] border border-white/12 bg-[#080808] p-4 shadow-[0_22px_80px_rgba(0,0,0,0.32)]">
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+                Selection
+              </p>
+              <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-3">
+                <p className="text-sm font-medium text-white">{selectionLabel}</p>
+                {selectedElements.length === 1 && selectedElement ? (
+                  <p className="mt-1 text-xs text-white/45">
+                    {Math.round(selectedElement.width)} x {Math.round(selectedElement.height)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-white/45">
+                    Move, reorder, duplicate, or remove this selection.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                className="rounded-[16px] px-3 py-2.5"
+                disabled={!canEdit}
+                onClick={handleDuplicateSelected}
+              >
+                Duplicate
+              </Button>
+              <Button
+                variant="danger"
+                className="rounded-[16px] px-3 py-2.5"
+                disabled={!canEdit}
+                onClick={handleDeleteSelected}
+              >
+                Delete
+              </Button>
+              <Button
+                variant="ghost"
+                className="rounded-[16px] px-3 py-2.5"
+                disabled={!canEdit}
+                onClick={handleBringToFront}
+              >
+                Bring front
+              </Button>
+              <Button
+                variant="ghost"
+                className="rounded-[16px] px-3 py-2.5"
+                disabled={!canEdit}
+                onClick={handleSendToBack}
+              >
+                Send back
+              </Button>
+            </div>
+
+            {editableTextElement ? (
+              <div className="mt-4 space-y-3 rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+                    {editableTextElement.type === 'note' ? 'Note content' : 'Text content'}
+                  </p>
+                  <p className="text-xs leading-5 text-white/55">
+                    Edit the selected block here. Changes sync automatically.
+                  </p>
+                </div>
+                <Textarea
+                  value={editableTextElement.text}
+                  disabled={!canEdit}
+                  className="min-h-[130px] rounded-[18px] border-white/10 bg-black/20 text-white placeholder:text-white/35"
+                  onChange={(event) => handleUpdateSelectedTextContent(event.target.value)}
+                  placeholder={editableTextElement.type === 'note' ? 'Write your note...' : 'Write text...'}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="pointer-events-none absolute bottom-4 right-4 z-20 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3">
         {error ? (
