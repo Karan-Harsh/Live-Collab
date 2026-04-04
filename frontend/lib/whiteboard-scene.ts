@@ -125,7 +125,7 @@ export const createElementId = (): string => {
 
 export const createEmptyScene = (): WhiteboardScene => ({
   version: 1,
-  background: '#fffdf8',
+  background: '#111111',
   elements: [],
 });
 
@@ -176,16 +176,16 @@ const coerceElement = (value: unknown): WhiteboardElement | null => {
       return {
         ...base,
         type: 'rectangle',
-        stroke: asString(value.stroke, '#0f172a'),
-        fill: asString(value.fill, 'rgba(45,212,191,0.14)'),
+        stroke: asString(value.stroke, '#f5f5f5'),
+        fill: asString(value.fill, 'rgba(255,255,255,0.05)'),
         strokeWidth: asNumber(value.strokeWidth, 3),
       };
     case 'ellipse':
       return {
         ...base,
         type: 'ellipse',
-        stroke: asString(value.stroke, '#1d4ed8'),
-        fill: asString(value.fill, 'rgba(59,130,246,0.14)'),
+        stroke: asString(value.stroke, '#d4d4d4'),
+        fill: asString(value.fill, 'rgba(255,255,255,0.04)'),
         strokeWidth: asNumber(value.strokeWidth, 3),
       };
     case 'stroke':
@@ -193,7 +193,7 @@ const coerceElement = (value: unknown): WhiteboardElement | null => {
         ...base,
         type: 'stroke',
         points: Array.isArray(value.points) ? value.points.filter(isPoint) : [],
-        stroke: asString(value.stroke, '#111827'),
+        stroke: asString(value.stroke, '#f5f5f5'),
         strokeWidth: asNumber(value.strokeWidth, 4),
       };
     case 'note':
@@ -201,15 +201,15 @@ const coerceElement = (value: unknown): WhiteboardElement | null => {
         ...base,
         type: 'note',
         text: asString(value.text, 'New note'),
-        fill: asString(value.fill, '#fef08a'),
-        textColor: asString(value.textColor, '#1f2937'),
+        fill: asString(value.fill, '#f1f1f1'),
+        textColor: asString(value.textColor, '#111111'),
       };
     case 'text':
       return {
         ...base,
         type: 'text',
         text: asString(value.text, 'Text'),
-        textColor: asString(value.textColor, '#e2e8f0'),
+        textColor: asString(value.textColor, '#f5f5f5'),
         fontSize: asNumber(value.fontSize, 28),
         fontFamily: asString(value.fontFamily, 'Georgia, serif'),
       };
@@ -221,7 +221,7 @@ const coerceElement = (value: unknown): WhiteboardElement | null => {
         end: isPoint(value.end)
           ? value.end
           : { x: base.x + Math.max(base.width, 1), y: base.y + Math.max(base.height, 1) },
-        stroke: asString(value.stroke, '#f97316'),
+        stroke: asString(value.stroke, '#f5f5f5'),
         strokeWidth: asNumber(value.strokeWidth, 4),
       };
     case 'image':
@@ -252,7 +252,7 @@ export const parseSceneFromContent = (content: string): WhiteboardScene => {
 
     return {
       version: 1,
-      background: asString(parsed.background, '#fffdf8'),
+      background: asString(parsed.background, '#111111'),
       elements: parsed.elements
         .map((element) => coerceElement(element))
         .filter((element): element is WhiteboardElement => element !== null),
@@ -260,7 +260,7 @@ export const parseSceneFromContent = (content: string): WhiteboardScene => {
   } catch {
     return {
       version: 1,
-      background: '#fffdf8',
+      background: '#111111',
       elements: [
         {
           id: createElementId(),
@@ -270,8 +270,8 @@ export const parseSceneFromContent = (content: string): WhiteboardScene => {
           width: 360,
           height: 220,
           text: trimmedContent,
-          fill: '#fef08a',
-          textColor: '#1f2937',
+          fill: '#f1f1f1',
+          textColor: '#111111',
           createdAt: nowIso(),
           updatedAt: nowIso(),
         },
@@ -943,16 +943,16 @@ export const createShapeElement = (
     return {
       ...base,
       type: 'rectangle',
-      stroke: '#0f172a',
-      fill: 'rgba(20,184,166,0.14)',
+      stroke: '#f5f5f5',
+      fill: 'rgba(255,255,255,0.05)',
     };
   }
 
   return {
     ...base,
     type: 'ellipse',
-    stroke: '#1d4ed8',
-    fill: 'rgba(96,165,250,0.18)',
+    stroke: '#d4d4d4',
+    fill: 'rgba(255,255,255,0.04)',
   };
 };
 
@@ -971,7 +971,7 @@ export const createArrowElement = (
     height: bounds.height,
     start,
     end: current,
-    stroke: '#f97316',
+    stroke: '#f5f5f5',
     strokeWidth: 4,
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -987,7 +987,7 @@ export const createStrokeElement = (points: ScenePoint[]): StrokeElement => {
     width: 0,
     height: 0,
     points,
-    stroke: '#111827',
+    stroke: '#f5f5f5',
     strokeWidth: 4,
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -1001,7 +1001,7 @@ export const createStrokeElement = (points: ScenePoint[]): StrokeElement => {
     width: bounds.width,
     height: bounds.height,
     points,
-    stroke: '#111827',
+    stroke: '#f5f5f5',
     strokeWidth: 4,
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -1016,8 +1016,8 @@ export const createNoteElement = (point: ScenePoint): NoteElement => ({
   width: 260,
   height: 180,
   text: 'New note',
-  fill: '#fef08a',
-  textColor: '#1f2937',
+  fill: '#f1f1f1',
+  textColor: '#111111',
   createdAt: nowIso(),
   updatedAt: nowIso(),
 });
@@ -1030,7 +1030,7 @@ export const createTextElement = (point: ScenePoint): TextElement => ({
   width: 320,
   height: 80,
   text: 'Text',
-  textColor: '#e2e8f0',
+  textColor: '#f5f5f5',
   fontSize: 28,
   fontFamily: 'Georgia, serif',
   createdAt: nowIso(),

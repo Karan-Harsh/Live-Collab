@@ -117,8 +117,8 @@ const DashboardPage = () => {
           <header className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_360px]">
             <section className="overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(9,20,31,0.9),rgba(9,18,28,0.72))] p-7 shadow-[0_30px_100px_rgba(2,6,23,0.34)] backdrop-blur sm:p-8">
               <div className="flex flex-wrap items-center gap-3">
-                <Badge className="border-accent/20 bg-accent/10 text-accent">Studio dashboard</Badge>
-                <Badge className="border-[#f6c177]/20 bg-[#f6c177]/10 text-[#f6c177]">
+                <Badge className="border-white/10 bg-white/[0.06] text-white/80">Studio dashboard</Badge>
+                <Badge className="border-white/10 bg-white/[0.04] text-white/70">
                   Invite-only collaboration
                 </Badge>
               </div>
@@ -156,8 +156,8 @@ const DashboardPage = () => {
               </div>
             </section>
 
-            <section className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,22,33,0.88),rgba(8,18,28,0.74))] p-6 shadow-[0_28px_90px_rgba(2,6,23,0.3)] backdrop-blur">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accentSky">
+            <section className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.88),rgba(8,8,8,0.74))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.3)] backdrop-blur">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/60">
                 Workspace controls
               </p>
               <div className="mt-5 space-y-4">
@@ -203,7 +203,7 @@ const DashboardPage = () => {
           </div>
 
           {pageError ? (
-            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white">
               {getErrorMessage(pageError)}
             </div>
           ) : null}

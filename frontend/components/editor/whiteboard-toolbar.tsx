@@ -73,7 +73,7 @@ export const WhiteboardToolbar = ({
             className={cn(
               'rounded-2xl border px-3 py-2 text-sm font-semibold transition',
               item.id === tool
-                ? 'border-accent/50 bg-accent/15 text-accent'
+                ? 'border-white/20 bg-white/[0.12] text-white'
                 : 'border-white/10 bg-white/5 text-muted hover:border-white/20 hover:bg-white/10 hover:text-white',
               !canEdit && item.id !== 'select' && item.id !== 'hand' ? 'cursor-not-allowed opacity-40' : '',
             )}
@@ -168,19 +168,19 @@ export const WhiteboardToolbar = ({
       )}
 
       {editableTextElement ? (
-        <div className="space-y-3 rounded-[24px] border border-amber-300/20 bg-amber-300/10 px-4 py-4">
+        <div className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/80">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
               {editableTextElement.type === 'note' ? 'Note content' : 'Text content'}
             </p>
-            <p className="text-sm text-amber-50/80">
+            <p className="text-sm text-white/70">
               Edit the selected {editableTextElement.type} block directly here. Changes sync to collaborators automatically.
             </p>
           </div>
           <Textarea
             value={editableTextElement.text}
             disabled={!canEdit}
-            className="min-h-[140px] border-amber-200/20 bg-black/10 text-amber-50 placeholder:text-amber-50/40"
+            className="min-h-[140px] border-white/10 bg-black/20 text-white placeholder:text-white/40"
             onChange={(event) => onUpdateSelectedTextContent(event.target.value)}
             placeholder={editableTextElement.type === 'note' ? 'Write your note...' : 'Write text...'}
           />

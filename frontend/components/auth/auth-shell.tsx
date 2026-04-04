@@ -24,11 +24,11 @@ export const AuthShell = ({
   return (
     <AppShell className="flex items-center">
       <div className="grid w-full gap-8 xl:grid-cols-[1.12fr_0.88fr]">
-        <section className="relative overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,18,28,0.9),rgba(7,17,26,0.72))] p-8 shadow-[0_32px_120px_rgba(2,6,23,0.38)] backdrop-blur xl:p-12">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(94,234,212,0.12),transparent_28%),radial-gradient(circle_at_80%_20%,rgba(246,193,119,0.1),transparent_24%)]" />
+        <section className="relative overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.92),rgba(7,7,7,0.82))] p-8 shadow-[0_32px_120px_rgba(0,0,0,0.38)] backdrop-blur xl:p-12">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.05),transparent_28%)]" />
           <div className="relative flex h-full flex-col justify-between gap-10">
             <div className="space-y-7">
-              <Badge className="border-accent/20 bg-accent/10 text-accent">
+              <Badge className="border-white/10 bg-white/[0.06] text-white">
                 Collaborative Whiteboard OS
               </Badge>
               <div className="space-y-5">
@@ -44,7 +44,7 @@ export const AuthShell = ({
 
             <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
               <div className="rounded-[30px] border border-white/10 bg-black/20 p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#7dd3fc]">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">
                   Why Teams Stay
                 </p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -70,8 +70,8 @@ export const AuthShell = ({
               </div>
 
               <div className="grid gap-4">
-                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(94,234,212,0.12),rgba(8,18,28,0.18))] p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-accent">
+                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(8,8,8,0.18))] p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-white/60">
                     Realtime
                   </p>
                   <p className="mt-3 text-lg font-semibold text-white">Socket-powered live rooms</p>
@@ -79,8 +79,8 @@ export const AuthShell = ({
                     Collaborators see board changes land almost immediately.
                   </p>
                 </div>
-                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(246,193,119,0.12),rgba(8,18,28,0.18))] p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#f6c177]">
+                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(8,8,8,0.18))] p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-white/60">
                     Access
                   </p>
                   <p className="mt-3 text-lg font-semibold text-white">Invitation-led workspaces</p>
@@ -93,9 +93,9 @@ export const AuthShell = ({
           </div>
         </section>
 
-        <section className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,22,33,0.88),rgba(11,24,35,0.72))] p-8 shadow-[0_28px_100px_rgba(2,6,23,0.34)] backdrop-blur xl:p-10">
+        <section className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.92),rgba(8,8,8,0.8))] p-8 shadow-[0_28px_100px_rgba(0,0,0,0.34)] backdrop-blur xl:p-10">
           <div className="mb-8 space-y-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-accent">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/60">
               {eyebrow}
             </p>
             <h2 className="max-w-lg text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.25rem]">
@@ -112,7 +112,7 @@ export const AuthShell = ({
             Need a different path?{' '}
             <Link
               href={alternateHref}
-              className="font-semibold text-accent transition hover:text-accentSky"
+              className="font-semibold text-white transition hover:text-white/70"
             >
               {alternateLabel}
             </Link>

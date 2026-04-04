@@ -67,7 +67,7 @@ const defaultViewport: ViewportState = {
   zoom: 0.72,
 };
 
-const cursorPalette = ['#5eead4', '#f97316', '#f472b6', '#60a5fa', '#facc15', '#34d399'];
+const cursorPalette = ['#f5f5f5', '#d4d4d4', '#a3a3a3', '#737373', '#e5e5e5', '#bfbfbf'];
 
 const getCursorColor = (userId: string): string => {
   const total = Array.from(userId).reduce((sum, character) => sum + character.charCodeAt(0), 0);
@@ -176,6 +176,7 @@ export const CollaborativeEditor = ({
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [activeUserIds, setActiveUserIds] = useState<string[]>([currentUserId]);
   const [remoteCursors, setRemoteCursors] = useState<RealtimeCursorPresencePayload[]>([]);
+  const [isCollaborationPanelOpen, setIsCollaborationPanelOpen] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -712,14 +713,14 @@ export const CollaborativeEditor = ({
 
   const connectionTone = useMemo(() => {
     if (connectionState === 'live') {
-      return 'border-accent/20 bg-accent/10 text-accent';
+      return 'border-white/15 bg-white/[0.08] text-white';
     }
 
     if (connectionState === 'connecting') {
-      return 'border-amber-400/20 bg-amber-400/10 text-amber-200';
+      return 'border-white/10 bg-white/[0.05] text-white/75';
     }
 
-    return 'border-rose-400/20 bg-rose-400/10 text-rose-200';
+    return 'border-white/10 bg-white/[0.04] text-white/60';
   }, [connectionState]);
 
   const syncLabel =
@@ -850,7 +851,7 @@ export const CollaborativeEditor = ({
   };
 
   return (
-    <div className="grid gap-6">
+    <div className="relative grid gap-3">
       <input
         ref={imageInputRef}
         type="file"
@@ -870,9 +871,9 @@ export const CollaborativeEditor = ({
         }}
       />
 
-      <div className="flex flex-col gap-4 rounded-[30px] border border-white/10 bg-panel/80 p-5 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 rounded-[28px] border border-white/10 bg-[#0c0c0c]/92 p-3 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge className={connectionTone}>
               {connectionState === 'live'
                 ? 'Realtime connected'
@@ -881,41 +882,49 @@ export const CollaborativeEditor = ({
                   : 'Realtime offline'}
             </Badge>
             <Badge>{syncLabel}</Badge>
-            <Badge>{whiteboard.accessRole === 'owner' ? 'Owner access' : 'Collaborator access'}</Badge>
             <Badge>{scene.elements.length} elements</Badge>
             <Badge>{activeCollaborators.length} active</Badge>
+            <Badge>{whiteboard.accessRole === 'owner' ? 'Owner' : 'Collaborator'}</Badge>
           </div>
-          <p className="text-sm text-muted">
-            This board now uses smarter scene merging and live presence, so collaborators can work
-            together with fewer accidental overwrites.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {activeCollaborators.map((user) => (
-              <div
-                key={user.id}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200"
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(94,234,212,0.9),rgba(125,211,252,0.8))] text-[10px] font-bold uppercase text-slate-950">
-                  {user.name
-                    .split(' ')
-                    .map((part) => part[0] ?? '')
-                    .join('')
-                    .slice(0, 2)}
-                </span>
-                <span>{user.id === currentUserId ? `${user.name} (You)` : user.name}</span>
+
+          <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="h-12 border-white/10 bg-transparent px-0 text-2xl font-semibold tracking-[-0.04em] focus:border-transparent focus:bg-transparent focus:shadow-none"
+                readOnly={!canEdit}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`V` Select</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`D` Draw</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`A` Arrow</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`T` Text</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">`Cmd/Ctrl+Z` Undo</span>
               </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`V` Select</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`D` Draw</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`A` Arrow</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`T` Text</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">`Cmd/Ctrl+Z` Undo</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {activeCollaborators.slice(0, 4).map((user) => (
+                <div
+                  key={user.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-200"
+                >
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-[10px] font-bold uppercase text-white">
+                    {user.name
+                      .split(' ')
+                      .map((part) => part[0] ?? '')
+                      .join('')
+                      .slice(0, 2)}
+                  </span>
+                  <span>{user.id === currentUserId ? `${user.name} (You)` : user.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" onClick={handleUndo} disabled={!canEdit || undoCount === 0}>
             Undo
           </Button>
@@ -923,20 +932,23 @@ export const CollaborativeEditor = ({
             Redo
           </Button>
           <Button variant="ghost" onClick={handleExportJson}>
-            Export JSON
+            Export
           </Button>
           <Button variant="ghost" onClick={handleImportRequested} disabled={!canEdit}>
-            Import JSON
+            Import
           </Button>
           <Button
             variant="secondary"
             onClick={() => duplicateMutation.mutate()}
             disabled={duplicateMutation.isPending}
           >
-            {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate board'}
+            {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate'}
+          </Button>
+          <Button variant="secondary" onClick={() => setIsCollaborationPanelOpen(true)}>
+            People
           </Button>
           <Button variant="secondary" onClick={() => router.push('/dashboard')}>
-            Back to dashboard
+            Exit
           </Button>
           {canDelete ? (
             <Button
@@ -954,80 +966,98 @@ export const CollaborativeEditor = ({
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white">
           {error}
         </div>
       ) : null}
 
       {!canEdit ? (
-        <div className="rounded-2xl border border-accentSky/20 bg-accentSky/10 px-4 py-3 text-sm text-accentSky">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
           Your access is currently view-only. You can explore the board, but only the owner and
           collaborators can change shapes or content.
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-4">
-          <div className="grid gap-3 rounded-[28px] border border-white/10 bg-panelSoft/80 p-5 backdrop-blur">
-            <label className="text-sm font-medium text-muted">Whiteboard title</label>
-            <Input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="text-lg font-semibold"
-              readOnly={!canEdit}
-            />
-          </div>
+      <div className="space-y-3">
+        <WhiteboardToolbar
+          tool={tool}
+          canEdit={canEdit}
+          zoom={viewport.zoom}
+          selectedElements={selectedElements}
+          onToolChange={setTool}
+          onZoomIn={() =>
+            setViewport((currentViewport) => ({
+              ...currentViewport,
+              zoom: clampViewportZoom(currentViewport.zoom + 0.1),
+            }))
+          }
+          onZoomOut={() =>
+            setViewport((currentViewport) => ({
+              ...currentViewport,
+              zoom: clampViewportZoom(currentViewport.zoom - 0.1),
+            }))
+          }
+          onResetView={() => setViewport(defaultViewport)}
+          onDeleteSelected={handleDeleteSelected}
+          onEditSelectedNote={handleEditSelectedNote}
+          onUpdateSelectedTextContent={handleUpdateSelectedTextContent}
+          onUploadImage={handleUploadRequested}
+          onDuplicateSelected={handleDuplicateSelected}
+          onBringToFront={handleBringToFront}
+          onSendToBack={handleSendToBack}
+        />
 
-          <WhiteboardToolbar
-            tool={tool}
-            canEdit={canEdit}
-            zoom={viewport.zoom}
-            selectedElements={selectedElements}
-            onToolChange={setTool}
-            onZoomIn={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom + 0.1),
-              }))
-            }
-            onZoomOut={() =>
-              setViewport((currentViewport) => ({
-                ...currentViewport,
-                zoom: clampViewportZoom(currentViewport.zoom - 0.1),
-              }))
-            }
-            onResetView={() => setViewport(defaultViewport)}
-            onDeleteSelected={handleDeleteSelected}
-            onEditSelectedNote={handleEditSelectedNote}
-            onUpdateSelectedTextContent={handleUpdateSelectedTextContent}
-            onUploadImage={handleUploadRequested}
-            onDuplicateSelected={handleDuplicateSelected}
-            onBringToFront={handleBringToFront}
-            onSendToBack={handleSendToBack}
-          />
-
-          <WhiteboardCanvas
-            scene={scene}
-            canEdit={canEdit}
-            tool={tool}
-            selectedElementIds={selectedElementIds}
-            remoteCursors={renderedRemoteCursors}
-            viewport={viewport}
-            onSceneChange={setScene}
-            onSelectElements={setSelectedElementIds}
-            onViewportChange={setViewport}
-            onElementDoubleClick={handleElementDoubleClick}
-            onCursorActivity={handleCursorActivity}
-          />
-        </div>
-
-        <CollaborationPanel
-          whiteboard={whiteboard}
-          canInvite={canInvite}
-          isInviting={inviteMutation.isPending}
-          onInvite={inviteMutation.mutateAsync}
+        <WhiteboardCanvas
+          scene={scene}
+          canEdit={canEdit}
+          tool={tool}
+          selectedElementIds={selectedElementIds}
+          remoteCursors={renderedRemoteCursors}
+          viewport={viewport}
+          onSceneChange={setScene}
+          onSelectElements={setSelectedElementIds}
+          onViewportChange={setViewport}
+          onElementDoubleClick={handleElementDoubleClick}
+          onCursorActivity={handleCursorActivity}
         />
       </div>
+
+      {isCollaborationPanelOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm"
+            onClick={() => setIsCollaborationPanelOpen(false)}
+            aria-label="Close collaboration panel"
+          />
+          <div className="fixed inset-y-0 right-0 z-40 w-full max-w-[420px] p-3 sm:p-4">
+            <div className="flex h-full flex-col gap-3">
+              <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-[#0c0c0c]/96 px-4 py-3 backdrop-blur">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">
+                    Workspace access
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Invite people and review current access.
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => setIsCollaborationPanelOpen(false)}>
+                  Close
+                </Button>
+              </div>
+
+              <div className="min-h-0 flex-1">
+                <CollaborationPanel
+                  whiteboard={whiteboard}
+                  canInvite={canInvite}
+                  isInviting={inviteMutation.isPending}
+                  onInvite={inviteMutation.mutateAsync}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };

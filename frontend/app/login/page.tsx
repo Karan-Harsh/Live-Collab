@@ -67,7 +67,7 @@ const LoginPage = () => {
             }
           />
 
-          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+          {error ? <p className="text-sm text-white/75">{error}</p> : null}
 
           <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
             {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
@@ -76,7 +76,7 @@ const LoginPage = () => {
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-muted">
           New here?{' '}
-          <Link href="/signup" className="font-semibold text-accent">
+          <Link href="/signup" className="font-semibold text-white">
             Create your account
           </Link>
           .

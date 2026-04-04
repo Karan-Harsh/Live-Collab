@@ -21,8 +21,8 @@ export const InvitationInbox = ({
 }: InvitationInboxProps) => {
   if (invitations.length === 0) {
     return (
-      <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,23,35,0.82),rgba(9,19,29,0.72))] p-6 shadow-[0_24px_80px_rgba(2,6,23,0.28)] backdrop-blur">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accentSky">
+      <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.88),rgba(8,8,8,0.78))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/60">
           Notifications
         </p>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -43,10 +43,10 @@ export const InvitationInbox = ({
   }
 
   return (
-    <section className="overflow-hidden rounded-[32px] border border-[#7dd3fc]/15 bg-[linear-gradient(180deg,rgba(12,24,36,0.92),rgba(8,18,28,0.78))] p-6 shadow-[0_28px_100px_rgba(2,6,23,0.32)] backdrop-blur">
+    <section className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.92),rgba(8,8,8,0.78))] p-6 shadow-[0_28px_100px_rgba(0,0,0,0.32)] backdrop-blur">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accentSky">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/60">
             Notifications
           </p>
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-white">
@@ -69,7 +69,7 @@ export const InvitationInbox = ({
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accentSky">
+                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
                     Invitation
                   </span>
                   <span className="text-xs text-slate-400">

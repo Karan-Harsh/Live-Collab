@@ -23,10 +23,10 @@ export const CollaborationPanel = ({
   const [email, setEmail] = useState('');
 
   return (
-    <aside className="rounded-[30px] border border-white/10 bg-panel/80 p-5 backdrop-blur">
+    <aside className="h-full overflow-y-auto rounded-[30px] border border-white/10 bg-[#0d0d0d]/96 p-5 backdrop-blur">
       <div className="space-y-5">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accentSky">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/60">
             Collaborators
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-white">Access control</h2>
@@ -35,7 +35,7 @@ export const CollaborationPanel = ({
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-panelSoft/80 p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
           <p className="text-sm font-medium text-white">Owner</p>
           <p className="mt-2 text-sm text-muted">
             {whiteboard.owner.name} · {whiteboard.owner.email}
@@ -51,7 +51,7 @@ export const CollaborationPanel = ({
               {whiteboard.collaborators.map((collaborator) => (
                 <div
                   key={collaborator.id}
-                  className="rounded-2xl border border-white/10 bg-panelSoft/70 p-4"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
                 >
                   <p className="text-sm font-medium text-white">{collaborator.user.name}</p>
                   <p className="mt-1 text-sm text-muted">{collaborator.user.email}</p>
@@ -59,7 +59,7 @@ export const CollaborationPanel = ({
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-panelSoft/50 p-4 text-sm text-muted">
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-muted">
               No collaborators yet.
             </div>
           )}
@@ -74,7 +74,7 @@ export const CollaborationPanel = ({
               {whiteboard.pendingInvites.map((invite) => (
                 <div
                   key={invite.id}
-                  className="rounded-2xl border border-accent/15 bg-accent/5 p-4"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
                 >
                   <p className="text-sm font-medium text-white">{invite.recipient.name}</p>
                   <p className="mt-1 text-sm text-muted">{invite.recipient.email}</p>
@@ -82,7 +82,7 @@ export const CollaborationPanel = ({
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-panelSoft/50 p-4 text-sm text-muted">
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-muted">
               No pending invites.
             </div>
           )}

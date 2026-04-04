@@ -251,7 +251,7 @@ const renderElement = (
 
       {element.type === 'note' ? (
         <foreignObject x={element.x} y={element.y} width={element.width} height={element.height}>
-          <div className="flex h-full w-full rounded-[28px] border border-amber-300/40 bg-[#fef08a] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+          <div className="flex h-full w-full rounded-[28px] border border-black/15 bg-[#f1f1f1] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
             <p
               className="whitespace-pre-wrap text-sm font-medium leading-6"
               style={{ color: element.textColor }}
@@ -273,7 +273,7 @@ const renderElement = (
             height={selectionBounds.height + 16}
             rx={20}
             fill="none"
-            stroke="#14b8a6"
+            stroke="#f5f5f5"
             strokeDasharray="10 8"
             strokeWidth={3}
             pointerEvents="none"
@@ -296,7 +296,7 @@ const renderElement = (
                       cy={handlePosition.y}
                       r={7}
                       fill="#f8fafc"
-                      stroke="#14b8a6"
+                      stroke="#111111"
                       strokeWidth={3}
                       data-resize-handle={handle}
                     />
@@ -668,7 +668,7 @@ export const WhiteboardCanvas = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-[72vh] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(7,17,31,0.96))] shadow-[0_28px_90px_rgba(2,6,23,0.38)]"
+      className="relative h-[80vh] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(6,6,6,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.4)]"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -678,11 +678,11 @@ export const WhiteboardCanvas = ({
       <svg className="h-full w-full" viewBox={`0 0 ${renderWidth} ${renderHeight}`} role="img">
         <defs>
           <pattern id="whiteboard-grid" width="28" height="28" patternUnits="userSpaceOnUse">
-            <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="1" />
+            <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
           </pattern>
         </defs>
 
-        <rect x="0" y="0" width={renderWidth} height={renderHeight} fill="rgba(148,163,184,0.06)" />
+        <rect x="0" y="0" width={renderWidth} height={renderHeight} fill="rgba(255,255,255,0.03)" />
 
         <g transform={`translate(${transformX} ${transformY}) scale(${viewport.zoom})`}>
           <rect
@@ -692,7 +692,7 @@ export const WhiteboardCanvas = ({
             height={SCENE_HEIGHT}
             rx="44"
             fill={scene.background}
-            stroke="rgba(15,23,42,0.08)"
+            stroke="rgba(255,255,255,0.08)"
             strokeWidth="2"
           />
           <rect
@@ -721,7 +721,7 @@ export const WhiteboardCanvas = ({
                   ry="14"
                   width={Math.max(cursor.name.length * 8.4 + 20, 72)}
                   height="28"
-                  fill="rgba(15,23,42,0.92)"
+                  fill="rgba(12,12,12,0.96)"
                   stroke={cursor.color}
                   strokeWidth="1.5"
                 />
