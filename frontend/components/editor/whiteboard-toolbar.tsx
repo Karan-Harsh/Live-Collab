@@ -4,20 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
-import type { WhiteboardElement, WhiteboardTool } from '@/lib/whiteboard-scene';
+import type { NoteElement, TextElement, WhiteboardElement, WhiteboardTool } from '@/lib/whiteboard-scene';
 
 interface WhiteboardToolbarProps {
   tool: WhiteboardTool;
   canEdit: boolean;
   zoom: number;
-  selectedElement: WhiteboardElement | null;
+  selectedElements: WhiteboardElement[];
   onToolChange: (tool: WhiteboardTool) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetView: () => void;
   onDeleteSelected: () => void;
   onEditSelectedNote: () => void;
-  onUpdateSelectedNoteText: (text: string) => void;
+  onUpdateSelectedTextContent: (text: string) => void;
   onUploadImage: () => void;
   onDuplicateSelected: () => void;
   onBringToFront: () => void;
@@ -30,26 +30,37 @@ const toolItems: Array<{ id: WhiteboardTool; label: string }> = [
   { id: 'draw', label: 'Draw' },
   { id: 'rectangle', label: 'Rectangle' },
   { id: 'ellipse', label: 'Ellipse' },
+  { id: 'arrow', label: 'Arrow' },
   { id: 'note', label: 'Note' },
+  { id: 'text', label: 'Text' },
 ];
+
+const isTextEditableElement = (
+  element: WhiteboardElement | null,
+): element is NoteElement | TextElement => {
+  return element?.type === 'note' || element?.type === 'text';
+};
 
 export const WhiteboardToolbar = ({
   tool,
   canEdit,
   zoom,
-  selectedElement,
+  selectedElements,
   onToolChange,
   onZoomIn,
   onZoomOut,
   onResetView,
   onDeleteSelected,
   onEditSelectedNote,
-  onUpdateSelectedNoteText,
+  onUpdateSelectedTextContent,
   onUploadImage,
   onDuplicateSelected,
   onBringToFront,
   onSendToBack,
 }: WhiteboardToolbarProps) => {
+  const selectedElement = selectedElements.at(-1) ?? null;
+  const editableTextElement = isTextEditableElement(selectedElement) ? selectedElement : null;
+
   return (
     <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-[#07131d]/90 p-4 shadow-2xl shadow-black/20 backdrop-blur">
       <div className="flex flex-wrap gap-2">
@@ -95,15 +106,19 @@ export const WhiteboardToolbar = ({
         </span>
       </div>
 
-      {selectedElement ? (
+      {selectedElements.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-            Selected {selectedElement.type}
+            {selectedElements.length === 1
+              ? `Selected ${selectedElement?.type ?? 'element'}`
+              : `${selectedElements.length} selected`}
           </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-muted">
-            {Math.round(selectedElement.width)} x {Math.round(selectedElement.height)}
-          </span>
-          {selectedElement.type === 'note' ? (
+          {selectedElements.length === 1 && selectedElement ? (
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-muted">
+              {Math.round(selectedElement.width)} x {Math.round(selectedElement.height)}
+            </span>
+          ) : null}
+          {selectedElement?.type === 'note' ? (
             <Button
               variant="secondary"
               className="rounded-2xl px-3 py-2"
@@ -148,26 +163,26 @@ export const WhiteboardToolbar = ({
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-muted">
-          Select an element to move it or remove it from the board.
+          Select one or more elements to move, reorder, duplicate, or delete them.
         </div>
       )}
 
-      {selectedElement?.type === 'note' ? (
+      {editableTextElement ? (
         <div className="space-y-3 rounded-[24px] border border-amber-300/20 bg-amber-300/10 px-4 py-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/80">
-              Note content
+              {editableTextElement.type === 'note' ? 'Note content' : 'Text content'}
             </p>
             <p className="text-sm text-amber-50/80">
-              Edit the sticky note directly here. Changes sync to collaborators automatically.
+              Edit the selected {editableTextElement.type} block directly here. Changes sync to collaborators automatically.
             </p>
           </div>
           <Textarea
-            value={selectedElement.text}
+            value={editableTextElement.text}
             disabled={!canEdit}
             className="min-h-[140px] border-amber-200/20 bg-black/10 text-amber-50 placeholder:text-amber-50/40"
-            onChange={(event) => onUpdateSelectedNoteText(event.target.value)}
-            placeholder="Write your note..."
+            onChange={(event) => onUpdateSelectedTextContent(event.target.value)}
+            placeholder={editableTextElement.type === 'note' ? 'Write your note...' : 'Write text...'}
           />
         </div>
       ) : null}

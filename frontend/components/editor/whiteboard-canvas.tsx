@@ -7,23 +7,27 @@ import {
   SCENE_WIDTH,
   buildStrokePath,
   clampViewportZoom,
+  createArrowElement,
   createNoteElement,
   createShapeElement,
   createStrokeElement,
+  createTextElement,
   getElementBounds,
   getTopmostElementAtPoint,
   isElementResizable,
-  removeElement,
+  removeElements,
   resizeElement,
   translateElement,
   upsertElement,
 } from '@/lib/whiteboard-scene';
 
 import type {
+  ArrowElement,
   EllipseElement,
   RectangleElement,
   ResizeHandle,
   ScenePoint,
+  TextElement,
   ViewportState,
   WhiteboardElement,
   WhiteboardScene,
@@ -39,10 +43,10 @@ interface WhiteboardCanvasProps {
   scene: WhiteboardScene;
   canEdit: boolean;
   tool: WhiteboardTool;
-  selectedElementId: string | null;
+  selectedElementIds: string[];
   viewport: ViewportState;
   onSceneChange: (scene: WhiteboardScene) => void;
-  onSelectElement: (elementId: string | null) => void;
+  onSelectElements: (elementIds: string[]) => void;
   onViewportChange: (viewport: ViewportState) => void;
   onElementDoubleClick: (element: WhiteboardElement) => void;
 }
@@ -50,7 +54,7 @@ interface WhiteboardCanvasProps {
 type DraftState =
   | {
       kind: 'shape';
-      tool: 'rectangle' | 'ellipse';
+      tool: 'rectangle' | 'ellipse' | 'arrow';
       start: ScenePoint;
       current: ScenePoint;
     }
@@ -60,7 +64,7 @@ type DraftState =
     }
   | {
       kind: 'move';
-      elementId: string;
+      elementIds: string[];
       pointer: ScenePoint;
     }
   | {
@@ -127,6 +131,36 @@ const getResizeHandleFromTarget = (target: EventTarget | null): ResizeHandle | n
   return null;
 };
 
+const buildArrowHeadPoints = (element: ArrowElement): string => {
+  const angle = Math.atan2(element.end.y - element.start.y, element.end.x - element.start.x);
+  const arrowHeadLength = 18;
+  const arrowHeadSpread = Math.PI / 7;
+  const leftX = element.end.x - arrowHeadLength * Math.cos(angle - arrowHeadSpread);
+  const leftY = element.end.y - arrowHeadLength * Math.sin(angle - arrowHeadSpread);
+  const rightX = element.end.x - arrowHeadLength * Math.cos(angle + arrowHeadSpread);
+  const rightY = element.end.y - arrowHeadLength * Math.sin(angle + arrowHeadSpread);
+
+  return `${element.end.x},${element.end.y} ${leftX},${leftY} ${rightX},${rightY}`;
+};
+
+const renderTextBlock = (element: TextElement): ReactElement => (
+  <foreignObject x={element.x} y={element.y} width={element.width} height={element.height}>
+    <div className="flex h-full w-full items-start">
+      <p
+        className="whitespace-pre-wrap break-words"
+        style={{
+          color: element.textColor,
+          fontSize: `${element.fontSize}px`,
+          fontFamily: element.fontFamily,
+          lineHeight: 1.2,
+        }}
+      >
+        {element.text}
+      </p>
+    </div>
+  </foreignObject>
+);
+
 const renderElement = (
   element: WhiteboardElement,
   isSelected: boolean,
@@ -158,6 +192,21 @@ const renderElement = (
           stroke={element.stroke}
           strokeWidth={element.strokeWidth}
         />
+      ) : null}
+
+      {element.type === 'arrow' ? (
+        <>
+          <line
+            x1={element.start.x}
+            y1={element.start.y}
+            x2={element.end.x}
+            y2={element.end.y}
+            stroke={element.stroke}
+            strokeWidth={element.strokeWidth}
+            strokeLinecap="round"
+          />
+          <polygon points={buildArrowHeadPoints(element)} fill={element.stroke} />
+        </>
       ) : null}
 
       {element.type === 'stroke' ? (
@@ -204,6 +253,8 @@ const renderElement = (
           </div>
         </foreignObject>
       ) : null}
+
+      {element.type === 'text' ? renderTextBlock(element) : null}
 
       {isSelected ? (
         <>
@@ -255,10 +306,10 @@ export const WhiteboardCanvas = ({
   scene,
   canEdit,
   tool,
-  selectedElementId,
+  selectedElementIds,
   viewport,
   onSceneChange,
-  onSelectElement,
+  onSelectElements,
   onViewportChange,
   onElementDoubleClick,
 }: WhiteboardCanvasProps) => {
@@ -296,7 +347,7 @@ export const WhiteboardCanvas = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (!canEdit || !selectedElementId || isFormElementFocused()) {
+      if (!canEdit || selectedElementIds.length === 0 || isFormElementFocused()) {
         return;
       }
 
@@ -305,8 +356,8 @@ export const WhiteboardCanvas = ({
       }
 
       event.preventDefault();
-      onSceneChange(removeElement(scene, selectedElementId));
-      onSelectElement(null);
+      onSceneChange(removeElements(scene, selectedElementIds));
+      onSelectElements([]);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -314,7 +365,7 @@ export const WhiteboardCanvas = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [canEdit, onSceneChange, onSelectElement, scene, selectedElementId]);
+  }, [canEdit, onSceneChange, onSelectElements, scene, selectedElementIds]);
 
   const getScenePoint = (
     clientX: number,
@@ -331,18 +382,19 @@ export const WhiteboardCanvas = ({
     const y = (clientY - rect.top - baseY) / viewport.zoom;
 
     return {
-      point: {
-        x,
-        y,
-      },
+      point: { x, y },
       rect,
     };
   };
 
   const commitDraftShape = (
     activeDraft: Exclude<DraftState, null>,
-  ): RectangleElement | EllipseElement | ReturnType<typeof createStrokeElement> | null => {
+  ): RectangleElement | EllipseElement | ArrowElement | ReturnType<typeof createStrokeElement> | null => {
     if (activeDraft.kind === 'shape') {
+      if (activeDraft.tool === 'arrow') {
+        return createArrowElement(activeDraft.start, activeDraft.current);
+      }
+
       return createShapeElement(activeDraft.tool, activeDraft.start, activeDraft.current);
     }
 
@@ -381,17 +433,17 @@ export const WhiteboardCanvas = ({
     }
 
     if (tool === 'select') {
-      onSelectElement(hitElement?.id ?? null);
+      const selectionSet = new Set(selectedElementIds);
 
       if (
         resizeHandle &&
-        selectedElementId &&
+        selectedElementIds.length === 1 &&
         canEdit &&
-        scene.elements.find((element) => element.id === selectedElementId && isElementResizable(element))
+        selectedElementIds[0] === hitElement?.id
       ) {
-        const selectedElement = scene.elements.find((element) => element.id === selectedElementId);
+        const selectedElement = scene.elements.find((element) => element.id === selectedElementIds[0]);
 
-        if (selectedElement) {
+        if (selectedElement && isElementResizable(selectedElement)) {
           setDraft({
             kind: 'resize',
             elementId: selectedElement.id,
@@ -403,10 +455,30 @@ export const WhiteboardCanvas = ({
         }
       }
 
-      if (hitElement && canEdit) {
+      if (event.shiftKey) {
+        if (hitElement) {
+          const nextSelection = selectionSet.has(hitElement.id)
+            ? selectedElementIds.filter((elementId) => elementId !== hitElement.id)
+            : [...selectedElementIds, hitElement.id];
+
+          onSelectElements(nextSelection);
+        }
+
+        return;
+      }
+
+      if (!hitElement) {
+        onSelectElements([]);
+        return;
+      }
+
+      const nextSelection = selectionSet.has(hitElement.id) ? selectedElementIds : [hitElement.id];
+      onSelectElements(nextSelection);
+
+      if (canEdit) {
         setDraft({
           kind: 'move',
-          elementId: hitElement.id,
+          elementIds: nextSelection,
           pointer: point,
         });
       }
@@ -421,7 +493,14 @@ export const WhiteboardCanvas = ({
     if (tool === 'note') {
       const note = createNoteElement(point);
       onSceneChange(upsertElement(scene, note));
-      onSelectElement(note.id);
+      onSelectElements([note.id]);
+      return;
+    }
+
+    if (tool === 'text') {
+      const textElement = createTextElement(point);
+      onSceneChange(upsertElement(scene, textElement));
+      onSelectElements([textElement.id]);
       return;
     }
 
@@ -433,7 +512,7 @@ export const WhiteboardCanvas = ({
       return;
     }
 
-    if (tool === 'rectangle' || tool === 'ellipse') {
+    if (tool === 'rectangle' || tool === 'ellipse' || tool === 'arrow') {
       setDraft({
         kind: 'shape',
         tool,
@@ -488,21 +567,19 @@ export const WhiteboardCanvas = ({
     }
 
     if (draft.kind === 'move' && canEdit) {
-      const selectedElement = scene.elements.find((element) => element.id === draft.elementId);
-
-      if (!selectedElement) {
-        return;
-      }
-
       const deltaX = point.x - draft.pointer.x;
       const deltaY = point.y - draft.pointer.y;
+      const selectionSet = new Set(draft.elementIds);
 
-      onSceneChange(
-        upsertElement(scene, translateElement(selectedElement, deltaX, deltaY)),
-      );
+      onSceneChange({
+        ...scene,
+        elements: scene.elements.map((element) =>
+          selectionSet.has(element.id) ? translateElement(element, deltaX, deltaY) : element,
+        ),
+      });
       setDraft({
         kind: 'move',
-        elementId: draft.elementId,
+        elementIds: draft.elementIds,
         pointer: point,
       });
       return;
@@ -512,9 +589,7 @@ export const WhiteboardCanvas = ({
       const deltaX = point.x - draft.pointer.x;
       const deltaY = point.y - draft.pointer.y;
 
-      onSceneChange(
-        upsertElement(scene, resizeElement(draft.origin, draft.handle, deltaX, deltaY)),
-      );
+      onSceneChange(upsertElement(scene, resizeElement(draft.origin, draft.handle, deltaX, deltaY)));
     }
   };
 
@@ -531,7 +606,7 @@ export const WhiteboardCanvas = ({
 
     if (committedElement) {
       onSceneChange(upsertElement(scene, committedElement));
-      onSelectElement(committedElement.id);
+      onSelectElements([committedElement.id]);
     }
 
     setDraft(null);
@@ -550,14 +625,13 @@ export const WhiteboardCanvas = ({
     });
   };
 
-  const selectedElement =
-    selectedElementId !== null
-      ? scene.elements.find((element) => element.id === selectedElementId) ?? null
-      : null;
+  const selectedElements = scene.elements.filter((element) => selectedElementIds.includes(element.id));
 
   const previewElement =
     draft?.kind === 'shape'
-      ? createShapeElement(draft.tool, draft.start, draft.current)
+      ? draft.tool === 'arrow'
+        ? createArrowElement(draft.start, draft.current)
+        : createShapeElement(draft.tool, draft.start, draft.current)
       : draft?.kind === 'stroke'
         ? createStrokeElement(draft.points)
         : null;
@@ -614,7 +688,7 @@ export const WhiteboardCanvas = ({
           />
 
           {draftScene.elements.map((element) =>
-            renderElement(element, selectedElement?.id === element.id),
+            renderElement(element, selectedElements.some((selectedElement) => selectedElement.id === element.id)),
           )}
         </g>
       </svg>
@@ -623,25 +697,30 @@ export const WhiteboardCanvas = ({
         {tool === 'hand'
           ? 'Hand tool active'
           : tool === 'select'
-            ? 'Select and drag elements'
+            ? 'Select, shift-select, and drag elements'
             : tool === 'draw'
               ? 'Freehand drawing'
               : tool === 'note'
                 ? 'Click to drop a note'
-                : 'Drag to place a shape'}
+                : tool === 'text'
+                  ? 'Click to place a text block'
+                  : tool === 'arrow'
+                    ? 'Drag to connect with an arrow'
+                    : 'Drag to place a shape'}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur">
-        Hold `Ctrl` or `Cmd` and scroll to zoom
+        Hold `Shift` to multi-select, or `Ctrl` / `Cmd` and scroll to zoom
       </div>
 
-      {selectedElement && selectedElement.type === 'note' ? (
+      {selectedElements.length === 1 &&
+      (selectedElements[0]?.type === 'note' || selectedElements[0]?.type === 'text') ? (
         <button
           type="button"
           className="absolute left-4 top-4 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-white/15"
-          onClick={() => onElementDoubleClick(selectedElement)}
+          onClick={() => onElementDoubleClick(selectedElements[0])}
         >
-          Edit selected note
+          Edit selected {selectedElements[0].type}
         </button>
       ) : null}
     </div>

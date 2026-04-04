@@ -16,14 +16,14 @@ import {
   MAX_IMAGE_UPLOAD_BYTES,
   clampViewportZoom,
   createImageElement,
-  duplicateElement,
+  duplicateElements,
   isSceneSnapshotChangeSummary,
   mergeScenes,
   parseSceneFromContent,
-  reorderElement,
-  removeElement,
+  reorderElements,
+  removeElements,
   serializeScene,
-  updateNoteElementText,
+  updateTextElementText,
   upsertElement,
 } from '@/lib/whiteboard-scene';
 import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime-service';
@@ -116,7 +116,7 @@ export const CollaborativeEditor = ({
   const [title, setTitle] = useState(whiteboard.title);
   const [scene, setScene] = useState<WhiteboardScene>(() => parseSceneFromContent(whiteboard.content));
   const [tool, setTool] = useState<WhiteboardTool>('select');
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const [viewport, setViewport] = useState<ViewportState>(defaultViewport);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [syncState, setSyncState] = useState<SyncState>('idle');
@@ -126,10 +126,8 @@ export const CollaborativeEditor = ({
   const canEdit = whiteboard.permissions.canEdit;
   const canDelete = whiteboard.permissions.canDelete;
   const canInvite = whiteboard.permissions.canInvite;
-  const selectedElement =
-    selectedElementId !== null
-      ? scene.elements.find((element) => element.id === selectedElementId) ?? null
-      : null;
+  const selectedElements = scene.elements.filter((element) => selectedElementIds.includes(element.id));
+  const selectedElement = selectedElements.at(-1) ?? null;
   const serializedScene = serializeScene(scene);
   const activeCollaborators = useMemo(() => {
     const knownUsers = [whiteboard.owner, ...whiteboard.collaborators.map((collaborator) => collaborator.user)];
@@ -173,7 +171,7 @@ export const CollaborativeEditor = ({
     setTitle(whiteboard.title);
     const parsedScene = parseSceneFromContent(whiteboard.content);
     setScene(parsedScene);
-    setSelectedElementId(null);
+    setSelectedElementIds([]);
     setActiveUserIds([currentUserId]);
     currentSceneRef.current = parsedScene;
     lastBroadcastSceneRef.current = parsedScene;
@@ -226,7 +224,7 @@ export const CollaborativeEditor = ({
         setScene(mergedScene);
         currentSceneRef.current = mergedScene;
         lastBroadcastSceneRef.current = mergedScene;
-        setSelectedElementId(null);
+        setSelectedElementIds([]);
       }
 
       setSyncState('remote-update');
@@ -350,20 +348,27 @@ export const CollaborativeEditor = ({
         : 'Live sync ready';
 
   const handleDeleteSelected = (): void => {
-    if (!selectedElementId || !canEdit) {
+    if (selectedElementIds.length === 0 || !canEdit) {
       return;
     }
 
-    setScene((currentScene) => removeElement(currentScene, selectedElementId));
-    setSelectedElementId(null);
+    setScene((currentScene) => removeElements(currentScene, selectedElementIds));
+    setSelectedElementIds([]);
   };
 
   const handleEditSelectedNote = (): void => {
-    if (!selectedElement || selectedElement.type !== 'note' || !canEdit) {
+    if (
+      !selectedElement ||
+      (selectedElement.type !== 'note' && selectedElement.type !== 'text') ||
+      !canEdit
+    ) {
       return;
     }
 
-    const nextText = window.prompt('Edit note', selectedElement.text);
+    const nextText = window.prompt(
+      selectedElement.type === 'note' ? 'Edit note' : 'Edit text',
+      selectedElement.text,
+    );
 
     if (nextText === null) {
       return;
@@ -381,48 +386,50 @@ export const CollaborativeEditor = ({
     );
   };
 
-  const handleUpdateSelectedNoteText = (text: string): void => {
-    if (!selectedElement || selectedElement.type !== 'note' || !canEdit) {
+  const handleUpdateSelectedTextContent = (text: string): void => {
+    if (
+      !selectedElement ||
+      (selectedElement.type !== 'note' && selectedElement.type !== 'text') ||
+      !canEdit
+    ) {
       return;
     }
 
-    setScene((currentScene) =>
-      upsertElement(currentScene, updateNoteElementText(selectedElement, text)),
-    );
+    setScene((currentScene) => upsertElement(currentScene, updateTextElementText(selectedElement, text)));
   };
 
   const handleDuplicateSelected = (): void => {
-    if (!selectedElementId || !canEdit) {
+    if (selectedElementIds.length === 0 || !canEdit) {
       return;
     }
 
-    let duplicatedElementId: string | null = null;
+    let duplicatedIds: string[] = [];
 
     setScene((currentScene) => {
-      const duplicationResult = duplicateElement(currentScene, selectedElementId);
-      duplicatedElementId = duplicationResult.duplicatedElementId;
+      const duplicationResult = duplicateElements(currentScene, selectedElementIds);
+      duplicatedIds = duplicationResult.duplicatedElementIds;
       return duplicationResult.scene;
     });
 
-    if (duplicatedElementId) {
-      setSelectedElementId(duplicatedElementId);
+    if (duplicatedIds.length > 0) {
+      setSelectedElementIds(duplicatedIds);
     }
   };
 
   const handleBringToFront = (): void => {
-    if (!selectedElementId || !canEdit) {
+    if (selectedElementIds.length === 0 || !canEdit) {
       return;
     }
 
-    setScene((currentScene) => reorderElement(currentScene, selectedElementId, 'front'));
+    setScene((currentScene) => reorderElements(currentScene, selectedElementIds, 'front'));
   };
 
   const handleSendToBack = (): void => {
-    if (!selectedElementId || !canEdit) {
+    if (selectedElementIds.length === 0 || !canEdit) {
       return;
     }
 
-    setScene((currentScene) => reorderElement(currentScene, selectedElementId, 'back'));
+    setScene((currentScene) => reorderElements(currentScene, selectedElementIds, 'back'));
   };
 
   const handleUploadRequested = (): void => {
@@ -446,7 +453,7 @@ export const CollaborativeEditor = ({
     try {
       const imageElement = await loadImageFile(file);
       setScene((currentScene) => upsertElement(currentScene, imageElement));
-      setSelectedElementId(imageElement.id);
+      setSelectedElementIds([imageElement.id]);
       setTool('select');
       setError(null);
     } catch (uploadError) {
@@ -455,7 +462,7 @@ export const CollaborativeEditor = ({
   };
 
   const handleElementDoubleClick = (element: WhiteboardElement): void => {
-    if (element.type === 'note') {
+    if (element.type === 'note' || element.type === 'text') {
       handleEditSelectedNote();
     }
   };
@@ -558,7 +565,7 @@ export const CollaborativeEditor = ({
             tool={tool}
             canEdit={canEdit}
             zoom={viewport.zoom}
-            selectedElement={selectedElement}
+            selectedElements={selectedElements}
             onToolChange={setTool}
             onZoomIn={() =>
               setViewport((currentViewport) => ({
@@ -575,7 +582,7 @@ export const CollaborativeEditor = ({
             onResetView={() => setViewport(defaultViewport)}
             onDeleteSelected={handleDeleteSelected}
             onEditSelectedNote={handleEditSelectedNote}
-            onUpdateSelectedNoteText={handleUpdateSelectedNoteText}
+            onUpdateSelectedTextContent={handleUpdateSelectedTextContent}
             onUploadImage={handleUploadRequested}
             onDuplicateSelected={handleDuplicateSelected}
             onBringToFront={handleBringToFront}
@@ -586,10 +593,10 @@ export const CollaborativeEditor = ({
             scene={scene}
             canEdit={canEdit}
             tool={tool}
-            selectedElementId={selectedElementId}
+            selectedElementIds={selectedElementIds}
             viewport={viewport}
             onSceneChange={setScene}
-            onSelectElement={setSelectedElementId}
+            onSelectElements={setSelectedElementIds}
             onViewportChange={setViewport}
             onElementDoubleClick={handleElementDoubleClick}
           />

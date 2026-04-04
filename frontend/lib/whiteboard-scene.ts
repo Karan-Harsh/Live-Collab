@@ -2,7 +2,15 @@ export const SCENE_WIDTH = 2400;
 export const SCENE_HEIGHT = 1600;
 export const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
 
-export type WhiteboardTool = 'select' | 'hand' | 'draw' | 'rectangle' | 'ellipse' | 'note';
+export type WhiteboardTool =
+  | 'select'
+  | 'hand'
+  | 'draw'
+  | 'rectangle'
+  | 'ellipse'
+  | 'note'
+  | 'text'
+  | 'arrow';
 export type ResizeHandle = 'nw' | 'ne' | 'se' | 'sw';
 
 export interface ScenePoint {
@@ -49,6 +57,22 @@ export interface NoteElement extends BaseElement {
   textColor: string;
 }
 
+export interface TextElement extends BaseElement {
+  type: 'text';
+  text: string;
+  textColor: string;
+  fontSize: number;
+  fontFamily: string;
+}
+
+export interface ArrowElement extends BaseElement {
+  type: 'arrow';
+  start: ScenePoint;
+  end: ScenePoint;
+  stroke: string;
+  strokeWidth: number;
+}
+
 export interface ImageElement extends BaseElement {
   type: 'image';
   src: string;
@@ -60,6 +84,8 @@ export type WhiteboardElement =
   | EllipseElement
   | StrokeElement
   | NoteElement
+  | TextElement
+  | ArrowElement
   | ImageElement;
 
 export interface WhiteboardScene {
@@ -177,6 +203,26 @@ const coerceElement = (value: unknown): WhiteboardElement | null => {
         text: asString(value.text, 'New note'),
         fill: asString(value.fill, '#fef08a'),
         textColor: asString(value.textColor, '#1f2937'),
+      };
+    case 'text':
+      return {
+        ...base,
+        type: 'text',
+        text: asString(value.text, 'Text'),
+        textColor: asString(value.textColor, '#e2e8f0'),
+        fontSize: asNumber(value.fontSize, 28),
+        fontFamily: asString(value.fontFamily, 'Georgia, serif'),
+      };
+    case 'arrow':
+      return {
+        ...base,
+        type: 'arrow',
+        start: isPoint(value.start) ? value.start : { x: base.x, y: base.y },
+        end: isPoint(value.end)
+          ? value.end
+          : { x: base.x + Math.max(base.width, 1), y: base.y + Math.max(base.height, 1) },
+        stroke: asString(value.stroke, '#f97316'),
+        strokeWidth: asNumber(value.strokeWidth, 4),
       };
     case 'image':
       return {
@@ -381,6 +427,20 @@ export const mergeScenes = (
 export const getElementBounds = (
   element: WhiteboardElement,
 ): { x: number; y: number; width: number; height: number } => {
+  if (element.type === 'arrow') {
+    const minX = Math.min(element.start.x, element.end.x);
+    const maxX = Math.max(element.start.x, element.end.x);
+    const minY = Math.min(element.start.y, element.end.y);
+    const maxY = Math.max(element.start.y, element.end.y);
+
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1),
+    };
+  }
+
   if (element.type !== 'stroke') {
     return {
       x: element.x,
@@ -420,6 +480,25 @@ export const isPointInsideElement = (
     const normalizedY = (point.y - centerY) / radiusY;
 
     return normalizedX ** 2 + normalizedY ** 2 <= 1;
+  }
+
+  if (element.type === 'arrow') {
+    const threshold = Math.max(element.strokeWidth * 2, 12);
+    const deltaX = element.end.x - element.start.x;
+    const deltaY = element.end.y - element.start.y;
+    const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+
+    if (lengthSquared === 0) {
+      return false;
+    }
+
+    const projection = ((point.x - element.start.x) * deltaX + (point.y - element.start.y) * deltaY) / lengthSquared;
+    const clampedProjection = Math.max(0, Math.min(1, projection));
+    const closestX = element.start.x + clampedProjection * deltaX;
+    const closestY = element.start.y + clampedProjection * deltaY;
+    const distance = Math.hypot(point.x - closestX, point.y - closestY);
+
+    return distance <= threshold;
   }
 
   const padding = element.type === 'stroke' ? Math.max(element.strokeWidth * 1.5, 12) : 0;
@@ -476,6 +555,18 @@ export const removeElement = (scene: WhiteboardScene, elementId: string): Whiteb
   };
 };
 
+export const removeElements = (
+  scene: WhiteboardScene,
+  elementIds: string[],
+): WhiteboardScene => {
+  const selectedIds = new Set(elementIds);
+
+  return {
+    ...scene,
+    elements: scene.elements.filter((element) => !selectedIds.has(element.id)),
+  };
+};
+
 export const duplicateElement = (
   scene: WhiteboardScene,
   elementId: string,
@@ -489,21 +580,45 @@ export const duplicateElement = (
     };
   }
 
-  const duplicatedElement = {
-    ...sourceElement,
-    id: createElementId(),
-    x: sourceElement.x + 32,
-    y: sourceElement.y + 32,
-    points:
-      sourceElement.type === 'stroke'
-        ? sourceElement.points.map((point) => ({
+  const duplicatedElement =
+    sourceElement.type === 'stroke'
+      ? {
+          ...sourceElement,
+          id: createElementId(),
+          x: sourceElement.x + 32,
+          y: sourceElement.y + 32,
+          points: sourceElement.points.map((point) => ({
             x: point.x + 32,
             y: point.y + 32,
-          }))
-        : undefined,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  } as WhiteboardElement;
+          })),
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        }
+      : sourceElement.type === 'arrow'
+        ? {
+            ...sourceElement,
+            id: createElementId(),
+            x: sourceElement.x + 32,
+            y: sourceElement.y + 32,
+            start: {
+              x: sourceElement.start.x + 32,
+              y: sourceElement.start.y + 32,
+            },
+            end: {
+              x: sourceElement.end.x + 32,
+              y: sourceElement.end.y + 32,
+            },
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          }
+        : {
+            ...sourceElement,
+            id: createElementId(),
+            x: sourceElement.x + 32,
+            y: sourceElement.y + 32,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          };
 
   return {
     scene: {
@@ -511,6 +626,70 @@ export const duplicateElement = (
       elements: [...scene.elements, duplicatedElement],
     },
     duplicatedElementId: duplicatedElement.id,
+  };
+};
+
+export const duplicateElements = (
+  scene: WhiteboardScene,
+  elementIds: string[],
+): { scene: WhiteboardScene; duplicatedElementIds: string[] } => {
+  const selectedIds = new Set(elementIds);
+  const duplicatedElements: WhiteboardElement[] = [];
+
+  for (const element of scene.elements) {
+    if (!selectedIds.has(element.id)) {
+      continue;
+    }
+
+    const duplicatedElement =
+      element.type === 'stroke'
+        ? {
+            ...element,
+            id: createElementId(),
+            x: element.x + 32,
+            y: element.y + 32,
+            points: element.points.map((point) => ({
+              x: point.x + 32,
+              y: point.y + 32,
+            })),
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          }
+        : element.type === 'arrow'
+          ? {
+              ...element,
+              id: createElementId(),
+              x: element.x + 32,
+              y: element.y + 32,
+              start: {
+                x: element.start.x + 32,
+                y: element.start.y + 32,
+              },
+              end: {
+                x: element.end.x + 32,
+                y: element.end.y + 32,
+              },
+              createdAt: nowIso(),
+              updatedAt: nowIso(),
+            }
+          : {
+              ...element,
+              id: createElementId(),
+              x: element.x + 32,
+              y: element.y + 32,
+              createdAt: nowIso(),
+              updatedAt: nowIso(),
+            };
+
+    duplicatedElements.push(duplicatedElement);
+  }
+
+  return {
+    scene: {
+      ...scene,
+      elements: [...scene.elements, ...duplicatedElements],
+    },
+    duplicatedElementIds: duplicatedElements.map((element) => element.id),
   };
 };
 
@@ -558,6 +737,24 @@ export const reorderElement = (
   };
 };
 
+export const reorderElements = (
+  scene: WhiteboardScene,
+  elementIds: string[],
+  direction: 'front' | 'back',
+): WhiteboardScene => {
+  const selectedIds = new Set(elementIds);
+  const selectedElements = scene.elements.filter((element) => selectedIds.has(element.id));
+  const unselectedElements = scene.elements.filter((element) => !selectedIds.has(element.id));
+
+  return {
+    ...scene,
+    elements:
+      direction === 'front'
+        ? [...unselectedElements, ...selectedElements]
+        : [...selectedElements, ...unselectedElements],
+  };
+};
+
 export const translateElement = (
   element: WhiteboardElement,
   deltaX: number,
@@ -578,6 +775,23 @@ export const translateElement = (
     };
   }
 
+  if (element.type === 'arrow') {
+    return {
+      ...element,
+      x: element.x + deltaX,
+      y: element.y + deltaY,
+      start: {
+        x: element.start.x + deltaX,
+        y: element.start.y + deltaY,
+      },
+      end: {
+        x: element.end.x + deltaX,
+        y: element.end.y + deltaY,
+      },
+      updatedAt,
+    };
+  }
+
   return {
     ...element,
     x: element.x + deltaX,
@@ -587,7 +801,7 @@ export const translateElement = (
 };
 
 export const isElementResizable = (element: WhiteboardElement): boolean => {
-  return element.type !== 'stroke';
+  return element.type !== 'stroke' && element.type !== 'arrow';
 };
 
 const getElementMinimumSize = (element: WhiteboardElement): ElementMinimumSize => {
@@ -602,6 +816,13 @@ const getElementMinimumSize = (element: WhiteboardElement): ElementMinimumSize =
     return {
       width: 120,
       height: 120,
+    };
+  }
+
+  if (element.type === 'text') {
+    return {
+      width: 140,
+      height: 56,
     };
   }
 
@@ -735,6 +956,28 @@ export const createShapeElement = (
   };
 };
 
+export const createArrowElement = (
+  start: ScenePoint,
+  current: ScenePoint,
+): ArrowElement => {
+  const bounds = normalizeRectangle(start, current);
+
+  return {
+    id: createElementId(),
+    type: 'arrow',
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    start,
+    end: current,
+    stroke: '#f97316',
+    strokeWidth: 4,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+};
+
 export const createStrokeElement = (points: ScenePoint[]): StrokeElement => {
   const bounds = getElementBounds({
     id: createElementId(),
@@ -779,10 +1022,34 @@ export const createNoteElement = (point: ScenePoint): NoteElement => ({
   updatedAt: nowIso(),
 });
 
+export const createTextElement = (point: ScenePoint): TextElement => ({
+  id: createElementId(),
+  type: 'text',
+  x: point.x,
+  y: point.y,
+  width: 320,
+  height: 80,
+  text: 'Text',
+  textColor: '#e2e8f0',
+  fontSize: 28,
+  fontFamily: 'Georgia, serif',
+  createdAt: nowIso(),
+  updatedAt: nowIso(),
+});
+
 export const updateNoteElementText = (
   element: NoteElement,
   text: string,
 ): NoteElement => ({
+  ...element,
+  text,
+  updatedAt: nowIso(),
+});
+
+export const updateTextElementText = (
+  element: NoteElement | TextElement,
+  text: string,
+): NoteElement | TextElement => ({
   ...element,
   text,
   updatedAt: nowIso(),
