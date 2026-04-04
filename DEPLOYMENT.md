@@ -139,22 +139,6 @@ Important:
 
 - `NEXT_PUBLIC_API_URL` is embedded into the frontend bundle at build time, so it must point at the correct backend public URL before deployment.
 
-## CI/CD
-
-GitHub Actions workflow: [.github/workflows/ci.yml](/Users/karan/projects/liv-collab/.github/workflows/ci.yml)
-
-Current pipeline checks:
-
-- Backend: Prisma validate, lint, test, build, Docker image build
-- Frontend: lint, build, Docker image build
-
-Typical promotion flow:
-
-1. Open a pull request.
-2. Let CI validate both apps and both container builds.
-3. Merge to `main`.
-4. Let Railway/Render/Vercel deploy from the updated default branch.
-
 ## Security Checklist
 
 - Store secrets only in platform environment settings or GitHub secrets

@@ -250,5 +250,4 @@ Production deployment assets are included:
 - Backend container: [Dockerfile](/Users/karan/projects/liv-collab/Dockerfile)
 - Frontend container: [frontend/Dockerfile](/Users/karan/projects/liv-collab/frontend/Dockerfile)
 - Stack orchestration: [docker-compose.yml](/Users/karan/projects/liv-collab/docker-compose.yml)
-- CI workflow: [.github/workflows/ci.yml](/Users/karan/projects/liv-collab/.github/workflows/ci.yml)
 - Full guide: [DEPLOYMENT.md](/Users/karan/projects/liv-collab/DEPLOYMENT.md)
