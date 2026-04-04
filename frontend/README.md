@@ -65,12 +65,13 @@ The backend should be running with:
 - Persisted auth session with automatic access-token refresh
 - Dashboard with whiteboard listing, creation, and deletion
 - Dashboard inbox for pending in-app whiteboard invitations
-- Realtime whiteboard page with Socket.IO room join/leave and live content sync
+- Realtime whiteboard page with a structured scene model for shapes, notes, freehand drawing, and images
 - Owner invite panel and collaborator-aware protected routes
 
 ## Notes
 
-- The editor uses a snapshot-based textarea approach for clarity and reliability.
+- The whiteboard stores a serialized scene snapshot in the backend and syncs that scene over Socket.IO.
+- Image uploads are embedded into the board as data URLs and should stay under 2 MB per image.
 - Whiteboards are private by default and open up through in-app invitations only.
 - Local edits broadcast through Socket.IO and rely on the backend's debounced persistence strategy.
 - The UI is optimized for dark-mode SaaS styling and responsive layouts.

@@ -253,6 +253,7 @@ Example create invitation payload:
 - Whiteboards are private by default; only owners and accepted collaborators can access them.
 - Only owners can invite collaborators or delete a whiteboard.
 - Accepted collaborators can edit whiteboards and participate in realtime sessions.
+- Whiteboard `content` now stores a serialized scene snapshot so the frontend can sync shapes, notes, drawings, and images.
 - Realtime scaling uses the Socket.IO Redis adapter, so a reachable Redis instance is required when booting the websocket server.
 - Prisma CLI configuration lives in `prisma.config.ts`, which matches Prisma 7's current setup requirements.
 - The whiteboard model includes a `version` field to support future optimistic concurrency or CRDT/event-stream integrations.

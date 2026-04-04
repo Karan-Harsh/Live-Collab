@@ -15,7 +15,7 @@ export const sendChangesSchema = z.object({
   whiteboardId: z.string().uuid(),
   changes: z.unknown(),
   title: z.string().trim().min(1).max(255).optional(),
-  content: z.string().max(100_000).optional(),
+  content: z.string().max(5_000_000).optional(),
 });
 
 export type JoinDocumentPayload = z.infer<typeof joinDocumentSchema>;

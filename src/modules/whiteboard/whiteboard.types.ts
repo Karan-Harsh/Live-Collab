@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createWhiteboardSchema = z.object({
   body: z.object({
     title: z.string().trim().min(1).max(255),
-    content: z.string().max(100_000).default(''),
+    content: z.string().max(5_000_000).default(''),
   }),
   params: z.object({}).default({}),
   query: z.object({}).default({}),
@@ -27,7 +27,7 @@ export const updateWhiteboardSchema = z.object({
   body: z
     .object({
       title: z.string().trim().min(1).max(255).optional(),
-      content: z.string().max(100_000).optional(),
+      content: z.string().max(5_000_000).optional(),
     })
     .refine((data) => data.title !== undefined || data.content !== undefined, {
       message: 'At least one field must be provided.',
