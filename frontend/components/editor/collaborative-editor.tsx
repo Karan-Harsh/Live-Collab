@@ -12,10 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getErrorMessage } from '@/lib/error';
 import {
+  buildSceneSnapshotChangeSummary,
   MAX_IMAGE_UPLOAD_BYTES,
   clampViewportZoom,
   createImageElement,
   duplicateElement,
+  isSceneSnapshotChangeSummary,
+  mergeScenes,
   parseSceneFromContent,
   reorderElement,
   removeElement,
@@ -27,7 +30,11 @@ import { disconnectRealtimeSocket, getRealtimeSocket } from '@/services/realtime
 import { createInvitation } from '@/services/invitation-service';
 import { deleteWhiteboard } from '@/services/whiteboard-service';
 
-import type { RealtimeReceiveChangesPayload, WhiteboardRecord } from '@/lib/types';
+import type {
+  RealtimePresenceUpdatedPayload,
+  RealtimeReceiveChangesPayload,
+  WhiteboardRecord,
+} from '@/lib/types';
 import type {
   ImageElement,
   ViewportState,
@@ -101,6 +108,10 @@ export const CollaborativeEditor = ({
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const broadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
+  const currentSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
+  const lastBroadcastSceneRef = useRef<WhiteboardScene>(parseSceneFromContent(whiteboard.content));
+  const currentTitleRef = useRef(whiteboard.title);
+  const lastBroadcastTitleRef = useRef(whiteboard.title);
 
   const [title, setTitle] = useState(whiteboard.title);
   const [scene, setScene] = useState<WhiteboardScene>(() => parseSceneFromContent(whiteboard.content));
@@ -109,6 +120,7 @@ export const CollaborativeEditor = ({
   const [viewport, setViewport] = useState<ViewportState>(defaultViewport);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [activeUserIds, setActiveUserIds] = useState<string[]>([currentUserId]);
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = whiteboard.permissions.canEdit;
@@ -119,6 +131,14 @@ export const CollaborativeEditor = ({
       ? scene.elements.find((element) => element.id === selectedElementId) ?? null
       : null;
   const serializedScene = serializeScene(scene);
+  const activeCollaborators = useMemo(() => {
+    const knownUsers = [whiteboard.owner, ...whiteboard.collaborators.map((collaborator) => collaborator.user)];
+    const uniqueUsers = new Map(knownUsers.map((user) => [user.id, user]));
+
+    return activeUserIds
+      .map((userId) => uniqueUsers.get(userId))
+      .filter((user): user is (typeof knownUsers)[number] => Boolean(user));
+  }, [activeUserIds, whiteboard.collaborators, whiteboard.owner]);
 
   const inviteMutation = useMutation({
     mutationFn: (email: string) => createInvitation(whiteboard.id, email),
@@ -151,10 +171,24 @@ export const CollaborativeEditor = ({
 
   useEffect(() => {
     setTitle(whiteboard.title);
-    setScene(parseSceneFromContent(whiteboard.content));
+    const parsedScene = parseSceneFromContent(whiteboard.content);
+    setScene(parsedScene);
     setSelectedElementId(null);
+    setActiveUserIds([currentUserId]);
+    currentSceneRef.current = parsedScene;
+    lastBroadcastSceneRef.current = parsedScene;
+    currentTitleRef.current = whiteboard.title;
+    lastBroadcastTitleRef.current = whiteboard.title;
     suppressBroadcastRef.current = true;
-  }, [whiteboard.content, whiteboard.title]);
+  }, [currentUserId, whiteboard.content, whiteboard.title]);
+
+  useEffect(() => {
+    currentSceneRef.current = scene;
+  }, [scene]);
+
+  useEffect(() => {
+    currentTitleRef.current = title;
+  }, [title]);
 
   useEffect(() => {
     const socket = getRealtimeSocket(accessToken);
@@ -167,6 +201,7 @@ export const CollaborativeEditor = ({
 
     const handleDisconnect = (): void => {
       setConnectionState('offline');
+      setActiveUserIds([currentUserId]);
     };
 
     const handleReceiveChanges = (payload: RealtimeReceiveChangesPayload): void => {
@@ -178,10 +213,19 @@ export const CollaborativeEditor = ({
 
       if (payload.title !== undefined) {
         setTitle(payload.title);
+        currentTitleRef.current = payload.title;
+        lastBroadcastTitleRef.current = payload.title;
       }
 
       if (payload.content !== undefined) {
-        setScene(parseSceneFromContent(payload.content));
+        const remoteScene = parseSceneFromContent(payload.content);
+        const mergedScene = isSceneSnapshotChangeSummary(payload.changes)
+          ? mergeScenes(currentSceneRef.current, remoteScene, payload.changes)
+          : remoteScene;
+
+        setScene(mergedScene);
+        currentSceneRef.current = mergedScene;
+        lastBroadcastSceneRef.current = mergedScene;
         setSelectedElementId(null);
       }
 
@@ -189,9 +233,18 @@ export const CollaborativeEditor = ({
       window.setTimeout(() => setSyncState('idle'), 1000);
     };
 
+    const handlePresenceUpdated = (payload: RealtimePresenceUpdatedPayload): void => {
+      if (payload.whiteboardId !== whiteboard.id) {
+        return;
+      }
+
+      setActiveUserIds(payload.activeUserIds);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('receive_changes', handleReceiveChanges);
+    socket.on('presence_updated', handlePresenceUpdated);
 
     socket.connect();
     socket.emit('join_whiteboard', { whiteboardId: whiteboard.id }, (response) => {
@@ -202,7 +255,13 @@ export const CollaborativeEditor = ({
 
       suppressBroadcastRef.current = true;
       setTitle(response.title);
-      setScene(parseSceneFromContent(response.content));
+      const joinedScene = parseSceneFromContent(response.content);
+      setScene(joinedScene);
+      setActiveUserIds(response.activeUserIds);
+      currentSceneRef.current = joinedScene;
+      lastBroadcastSceneRef.current = joinedScene;
+      currentTitleRef.current = response.title;
+      lastBroadcastTitleRef.current = response.title;
       setConnectionState('live');
     });
 
@@ -211,6 +270,7 @@ export const CollaborativeEditor = ({
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('receive_changes', handleReceiveChanges);
+      socket.off('presence_updated', handlePresenceUpdated);
       socket.disconnect();
       disconnectRealtimeSocket();
     };
@@ -236,17 +296,18 @@ export const CollaborativeEditor = ({
 
     setSyncState('syncing');
     broadcastTimerRef.current = window.setTimeout(() => {
+      const nextScene = currentSceneRef.current;
+      const nextTitle = currentTitleRef.current;
+      const nextSerializedScene = serializeScene(nextScene);
+      const changeSummary = buildSceneSnapshotChangeSummary(lastBroadcastSceneRef.current, nextScene);
+
       socketRef.current?.emit(
         'send_changes',
         {
           whiteboardId: whiteboard.id,
-          changes: {
-            type: 'scene_snapshot',
-            elementCount: scene.elements.length,
-            tool,
-          },
-          title,
-          content: serializedScene,
+          changes: changeSummary,
+          title: nextTitle,
+          content: nextSerializedScene,
         },
         (response) => {
           if ('message' in response) {
@@ -255,6 +316,8 @@ export const CollaborativeEditor = ({
             return;
           }
 
+          lastBroadcastSceneRef.current = nextScene;
+          lastBroadcastTitleRef.current = nextTitle;
           setSyncState('idle');
         },
       );
@@ -265,7 +328,7 @@ export const CollaborativeEditor = ({
         window.clearTimeout(broadcastTimerRef.current);
       }
     };
-  }, [canEdit, scene.elements.length, serializedScene, title, tool, whiteboard.id]);
+  }, [canEdit, scene, serializedScene, title, tool, whiteboard.id]);
 
   const connectionTone = useMemo(() => {
     if (connectionState === 'live') {
@@ -422,11 +485,29 @@ export const CollaborativeEditor = ({
             <Badge>{syncLabel}</Badge>
             <Badge>{whiteboard.accessRole === 'owner' ? 'Owner access' : 'Collaborator access'}</Badge>
             <Badge>{scene.elements.length} elements</Badge>
+            <Badge>{activeCollaborators.length} active</Badge>
           </div>
           <p className="text-sm text-muted">
-            This board now uses a structured scene model, so shapes, strokes, notes, and images
-            sync live across collaborators.
+            This board now uses smarter scene merging and live presence, so collaborators can work
+            together with fewer accidental overwrites.
           </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {activeCollaborators.map((user) => (
+              <div
+                key={user.id}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200"
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(94,234,212,0.9),rgba(125,211,252,0.8))] text-[10px] font-bold uppercase text-slate-950">
+                  {user.name
+                    .split(' ')
+                    .map((part) => part[0] ?? '')
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+                <span>{user.id === currentUserId ? `${user.name} (You)` : user.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -74,6 +74,14 @@ export interface ViewportState {
   zoom: number;
 }
 
+export interface SceneSnapshotChangeSummary {
+  type: 'scene_snapshot';
+  changedElementIds: string[];
+  removedElementIds: string[];
+  orderedElementIds: string[];
+  sceneUpdatedAt: string;
+}
+
 interface ElementMinimumSize {
   width: number;
   height: number;
@@ -113,6 +121,11 @@ const asNumber = (value: unknown, fallback: number): number => {
 
 const asString = (value: unknown, fallback: string): string => {
   return typeof value === 'string' ? value : fallback;
+};
+
+const toTimestamp = (value: string): number => {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 };
 
 const coerceBaseElement = (value: Record<string, unknown>) => ({
@@ -223,6 +236,146 @@ export const parseSceneFromContent = (content: string): WhiteboardScene => {
 
 export const serializeScene = (scene: WhiteboardScene): string => {
   return JSON.stringify(scene);
+};
+
+export const buildSceneSnapshotChangeSummary = (
+  previousScene: WhiteboardScene,
+  nextScene: WhiteboardScene,
+): SceneSnapshotChangeSummary => {
+  const previousElementIds = new Set(previousScene.elements.map((element) => element.id));
+  const nextElementIds = new Set(nextScene.elements.map((element) => element.id));
+
+  const changedElementIds = nextScene.elements
+    .filter((element) => {
+      const previousElement = previousScene.elements.find(
+        (candidateElement) => candidateElement.id === element.id,
+      );
+
+      if (!previousElement) {
+        return true;
+      }
+
+      return JSON.stringify(previousElement) !== JSON.stringify(element);
+    })
+    .map((element) => element.id);
+
+  const removedElementIds = Array.from(previousElementIds).filter((elementId) => {
+    return !nextElementIds.has(elementId);
+  });
+
+  return {
+    type: 'scene_snapshot',
+    changedElementIds,
+    removedElementIds,
+    orderedElementIds: nextScene.elements.map((element) => element.id),
+    sceneUpdatedAt: nowIso(),
+  };
+};
+
+export const isSceneSnapshotChangeSummary = (
+  value: unknown,
+): value is SceneSnapshotChangeSummary => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    value.type === 'scene_snapshot' &&
+    Array.isArray(value.changedElementIds) &&
+    Array.isArray(value.removedElementIds) &&
+    Array.isArray(value.orderedElementIds) &&
+    typeof value.sceneUpdatedAt === 'string'
+  );
+};
+
+export const mergeScenes = (
+  localScene: WhiteboardScene,
+  remoteScene: WhiteboardScene,
+  summary?: SceneSnapshotChangeSummary,
+): WhiteboardScene => {
+  const localElementMap = new Map(localScene.elements.map((element) => [element.id, element]));
+  const remoteElementMap = new Map(remoteScene.elements.map((element) => [element.id, element]));
+  const removedElementIds = new Set(summary?.removedElementIds ?? []);
+  const deletionTimestamp = toTimestamp(summary?.sceneUpdatedAt ?? nowIso());
+  const resolvedElements = new Map<string, WhiteboardElement>();
+  const allElementIds = new Set([
+    ...localScene.elements.map((element) => element.id),
+    ...remoteScene.elements.map((element) => element.id),
+  ]);
+
+  for (const elementId of allElementIds) {
+    const localElement = localElementMap.get(elementId);
+    const remoteElement = remoteElementMap.get(elementId);
+
+    if (removedElementIds.has(elementId)) {
+      if (localElement && toTimestamp(localElement.updatedAt) > deletionTimestamp) {
+        resolvedElements.set(elementId, localElement);
+      }
+
+      continue;
+    }
+
+    if (localElement && remoteElement) {
+      resolvedElements.set(
+        elementId,
+        toTimestamp(localElement.updatedAt) > toTimestamp(remoteElement.updatedAt)
+          ? localElement
+          : remoteElement,
+      );
+      continue;
+    }
+
+    if (remoteElement) {
+      resolvedElements.set(elementId, remoteElement);
+      continue;
+    }
+
+    if (localElement) {
+      resolvedElements.set(elementId, localElement);
+    }
+  }
+
+  const nextElements: WhiteboardElement[] = [];
+  const orderedElementIds = summary?.orderedElementIds ?? remoteScene.elements.map((element) => element.id);
+
+  for (const elementId of orderedElementIds) {
+    const resolvedElement = resolvedElements.get(elementId);
+
+    if (!resolvedElement) {
+      continue;
+    }
+
+    nextElements.push(resolvedElement);
+    resolvedElements.delete(elementId);
+  }
+
+  for (const element of localScene.elements) {
+    const remainingElement = resolvedElements.get(element.id);
+
+    if (!remainingElement) {
+      continue;
+    }
+
+    nextElements.push(remainingElement);
+    resolvedElements.delete(element.id);
+  }
+
+  for (const element of remoteScene.elements) {
+    const remainingElement = resolvedElements.get(element.id);
+
+    if (!remainingElement) {
+      continue;
+    }
+
+    nextElements.push(remainingElement);
+    resolvedElements.delete(element.id);
+  }
+
+  return {
+    version: 1,
+    background: remoteScene.background || localScene.background,
+    elements: nextElements,
+  };
 };
 
 export const getElementBounds = (

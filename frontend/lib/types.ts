@@ -81,11 +81,20 @@ export interface RealtimeReceiveChangesPayload {
   synchronized?: boolean;
 }
 
+export interface RealtimePresenceUpdatedPayload {
+  whiteboardId: string;
+  activeUserIds: string[];
+  joinedUserId?: string;
+  leftUserId?: string;
+  timestamp: string;
+}
+
 export interface RealtimeJoinResponse {
   whiteboardId: string;
   title: string;
   content: string;
   ownerId: string;
+  activeUserIds: string[];
   accessRole: 'owner' | 'collaborator';
   permissions: WhiteboardPermissions;
 }

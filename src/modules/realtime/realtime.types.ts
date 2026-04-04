@@ -32,11 +32,20 @@ export interface ReceiveChangesPayload {
   synchronized?: boolean;
 }
 
+export interface PresenceUpdatedPayload {
+  whiteboardId: string;
+  activeUserIds: string[];
+  joinedUserId?: string;
+  leftUserId?: string;
+  timestamp: string;
+}
+
 export interface JoinDocumentSuccessPayload {
   whiteboardId: string;
   title: string;
   content: string;
   ownerId: string;
+  activeUserIds: string[];
   accessRole: 'owner' | 'collaborator';
   permissions: {
     canEdit: boolean;
@@ -67,6 +76,7 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   receive_changes: (payload: ReceiveChangesPayload) => void;
+  presence_updated: (payload: PresenceUpdatedPayload) => void;
 }
 
 export interface InterServerEvents {}

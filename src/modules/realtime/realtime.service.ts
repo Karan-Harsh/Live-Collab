@@ -26,6 +26,7 @@ interface WhiteboardPersistenceGateway {
 export class RealtimeService {
   private readonly whiteboardBuffers = new Map<string, BufferedWhiteboardState>();
   private readonly socketWhiteboards = new Map<string, Set<string>>();
+  private readonly whiteboardPresence = new Map<string, Map<string, number>>();
 
   constructor(
     private readonly persistence: WhiteboardPersistenceGateway = whiteboardRepository,
@@ -69,17 +70,23 @@ export class RealtimeService {
     this.scheduleFlush(payload.whiteboardId);
   }
 
-  trackSocketWhiteboard(socketId: string, whiteboardId: string): void {
+  trackSocketWhiteboard(socketId: string, whiteboardId: string, userId: string): string[] {
     const activeWhiteboards = this.socketWhiteboards.get(socketId) ?? new Set<string>();
     activeWhiteboards.add(whiteboardId);
     this.socketWhiteboards.set(socketId, activeWhiteboards);
+
+    const activeUsers = this.whiteboardPresence.get(whiteboardId) ?? new Map<string, number>();
+    activeUsers.set(userId, (activeUsers.get(userId) ?? 0) + 1);
+    this.whiteboardPresence.set(whiteboardId, activeUsers);
+
+    return Array.from(activeUsers.keys());
   }
 
-  untrackSocketWhiteboard(socketId: string, whiteboardId: string): void {
+  untrackSocketWhiteboard(socketId: string, whiteboardId: string, userId: string): string[] {
     const activeWhiteboards = this.socketWhiteboards.get(socketId);
 
     if (!activeWhiteboards) {
-      return;
+      return this.getActiveUserIds(whiteboardId);
     }
 
     activeWhiteboards.delete(whiteboardId);
@@ -87,15 +94,41 @@ export class RealtimeService {
     if (activeWhiteboards.size === 0) {
       this.socketWhiteboards.delete(socketId);
     }
+
+    const activeUsers = this.whiteboardPresence.get(whiteboardId);
+
+    if (!activeUsers) {
+      return [];
+    }
+
+    const remainingCount = (activeUsers.get(userId) ?? 0) - 1;
+
+    if (remainingCount > 0) {
+      activeUsers.set(userId, remainingCount);
+    } else {
+      activeUsers.delete(userId);
+    }
+
+    if (activeUsers.size === 0) {
+      this.whiteboardPresence.delete(whiteboardId);
+      return [];
+    }
+
+    return Array.from(activeUsers.keys());
   }
 
-  handleDisconnect(socketId: string): string[] {
+  handleDisconnect(socketId: string, userId: string): Array<{ whiteboardId: string; activeUserIds: string[] }> {
     const activeWhiteboards = this.socketWhiteboards.get(socketId);
     const whiteboardIds = activeWhiteboards ? Array.from(activeWhiteboards) : [];
 
+    const disconnectState = whiteboardIds.map((whiteboardId) => ({
+      whiteboardId,
+      activeUserIds: this.untrackSocketWhiteboard(socketId, whiteboardId, userId),
+    }));
+
     this.socketWhiteboards.delete(socketId);
 
-    return whiteboardIds;
+    return disconnectState;
   }
 
   async shutdown(): Promise<void> {
@@ -171,6 +204,10 @@ export class RealtimeService {
         console.error('Failed to flush realtime whiteboard changes.', error);
       });
     }, this.debounceMs);
+  }
+
+  getActiveUserIds(whiteboardId: string): string[] {
+    return Array.from(this.whiteboardPresence.get(whiteboardId)?.keys() ?? []);
   }
 
   private async flushWhiteboard(whiteboardId: string): Promise<void> {

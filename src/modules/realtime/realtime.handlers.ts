@@ -33,7 +33,18 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
       );
 
       await socket.join(getRoomName(parsedPayload.whiteboardId));
-      realtimeService.trackSocketWhiteboard(socket.id, parsedPayload.whiteboardId);
+      const activeUserIds = realtimeService.trackSocketWhiteboard(
+        socket.id,
+        parsedPayload.whiteboardId,
+        socket.data.authUser.userId,
+      );
+
+      socket.to(getRoomName(parsedPayload.whiteboardId)).emit('presence_updated', {
+        whiteboardId: parsedPayload.whiteboardId,
+        activeUserIds,
+        joinedUserId: socket.data.authUser.userId,
+        timestamp: new Date().toISOString(),
+      });
 
       logRealtimeEvent('Socket joined whiteboard room.', {
         socketId: socket.id,
@@ -46,6 +57,7 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
         title: whiteboard.title,
         content: whiteboard.content,
         ownerId: whiteboard.ownerId,
+        activeUserIds,
         accessRole: whiteboardService.isWhiteboardOwner(whiteboard, socket.data.authUser.userId)
           ? 'owner'
           : 'collaborator',
@@ -77,7 +89,18 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
       const parsedPayload = leaveDocumentSchema.parse(payload);
 
       await socket.leave(getRoomName(parsedPayload.whiteboardId));
-      realtimeService.untrackSocketWhiteboard(socket.id, parsedPayload.whiteboardId);
+      const activeUserIds = realtimeService.untrackSocketWhiteboard(
+        socket.id,
+        parsedPayload.whiteboardId,
+        socket.data.authUser.userId,
+      );
+
+      socket.to(getRoomName(parsedPayload.whiteboardId)).emit('presence_updated', {
+        whiteboardId: parsedPayload.whiteboardId,
+        activeUserIds,
+        leftUserId: socket.data.authUser.userId,
+        timestamp: new Date().toISOString(),
+      });
 
       logRealtimeEvent('Socket left whiteboard room.', {
         socketId: socket.id,
@@ -131,13 +154,25 @@ export const registerRealtimeHandlers = (_io: RealtimeServer, socket: RealtimeSo
   });
 
   socket.on('disconnect', (reason) => {
-    const whiteboardIds = realtimeService.handleDisconnect(socket.id);
+    const disconnectState = realtimeService.handleDisconnect(
+      socket.id,
+      socket.data.authUser.userId,
+    );
+
+    for (const state of disconnectState) {
+      socket.to(getRoomName(state.whiteboardId)).emit('presence_updated', {
+        whiteboardId: state.whiteboardId,
+        activeUserIds: state.activeUserIds,
+        leftUserId: socket.data.authUser.userId,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     logRealtimeEvent('Socket disconnected.', {
       socketId: socket.id,
       userId: socket.data.authUser.userId,
       reason,
-      whiteboardIds,
+      whiteboardIds: disconnectState.map((state) => state.whiteboardId),
     });
   });
 };

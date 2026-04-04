@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RealtimeService } from '../../../src/modules/realtime/realtime.service';
 
-import type { WhiteboardView } from '../../../src/modules/whiteboard/whiteboard.select';
+import type { WhiteboardRecord } from '../../../src/modules/whiteboard/whiteboard.select';
 
-const createWhiteboard = (overrides: Partial<WhiteboardView> = {}): WhiteboardView => {
+const createWhiteboard = (overrides: Partial<WhiteboardRecord> = {}): WhiteboardRecord => {
   return {
     id: '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
     title: 'Original title',
@@ -107,5 +107,43 @@ describe('RealtimeService', () => {
       id: whiteboard.id,
       ownerId: whiteboard.ownerId,
     });
+  });
+
+  it('tracks active users per whiteboard across joins and disconnects', () => {
+    const service = new RealtimeService({
+      findById: vi.fn(),
+      updateWhiteboard: vi.fn(),
+    });
+
+    expect(
+      service.trackSocketWhiteboard(
+        'socket-owner',
+        '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
+        'owner-user-id',
+      ),
+    ).toEqual(['owner-user-id']);
+
+    expect(
+      service.trackSocketWhiteboard(
+        'socket-collaborator',
+        '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
+        'collaborator-user-id',
+      ),
+    ).toEqual(['owner-user-id', 'collaborator-user-id']);
+
+    expect(
+      service.untrackSocketWhiteboard(
+        'socket-owner',
+        '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
+        'owner-user-id',
+      ),
+    ).toEqual(['collaborator-user-id']);
+
+    expect(service.handleDisconnect('socket-collaborator', 'collaborator-user-id')).toEqual([
+      {
+        whiteboardId: '7ee48f4e-e7f5-4adc-bc62-31c331d88c01',
+        activeUserIds: [],
+      },
+    ]);
   });
 });

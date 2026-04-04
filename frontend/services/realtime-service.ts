@@ -4,7 +4,11 @@ import { io, type Socket } from 'socket.io-client';
 
 import { SOCKET_URL } from '@/lib/config';
 
-import type { RealtimeJoinResponse, RealtimeReceiveChangesPayload } from '@/lib/types';
+import type {
+  RealtimeJoinResponse,
+  RealtimePresenceUpdatedPayload,
+  RealtimeReceiveChangesPayload,
+} from '@/lib/types';
 
 type RealtimeError = {
   message: string;
@@ -19,6 +23,7 @@ type SendChangesPayload = {
 
 type ServerToClientEvents = {
   receive_changes: (payload: RealtimeReceiveChangesPayload) => void;
+  presence_updated: (payload: RealtimePresenceUpdatedPayload) => void;
 };
 
 type ClientToServerEvents = {
