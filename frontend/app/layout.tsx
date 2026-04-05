@@ -1,4 +1,5 @@
 import './globals.css';
+import '@excalidraw/excalidraw/index.css';
 
 import { Providers } from './providers';
 
