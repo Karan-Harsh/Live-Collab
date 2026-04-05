@@ -1,17 +1,24 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { AppShell } from '@/components/app-shell';
 import { RouteGuard } from '@/components/auth/route-guard';
-import { CollaborativeEditor } from '@/components/editor/collaborative-editor';
 import { getErrorMessage } from '@/lib/error';
 import { getCurrentUser } from '@/services/auth-service';
 import { useAuthStore } from '@/services/auth-store';
 import { getWhiteboard } from '@/services/whiteboard-service';
+
+const CollaborativeEditor = dynamic(
+  () => import('@/components/editor/collaborative-editor').then((module) => module.CollaborativeEditor),
+  {
+    ssr: false,
+  },
+);
 
 const WhiteboardPage = () => {
   const params = useParams<{ id: string }>();

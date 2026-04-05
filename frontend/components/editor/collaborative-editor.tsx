@@ -72,6 +72,7 @@ export const CollaborativeEditor = ({
   const currentSceneRef = useRef<ExcalidrawSceneSnapshot>(
     parseStoredExcalidrawScene(whiteboard.content),
   );
+  const collaboratorsRef = useRef<Map<SocketId, Collaborator>>(new Map());
   const currentTitleRef = useRef(whiteboard.title);
   const lastBroadcastSceneRef = useRef(whiteboard.content);
   const lastBroadcastTitleRef = useRef(whiteboard.title);
@@ -181,6 +182,10 @@ export const CollaborativeEditor = ({
     return nextCollaborators;
   }, [currentUserId, remoteCursors, userMap]);
 
+  useEffect(() => {
+    collaboratorsRef.current = collaborators;
+  }, [collaborators]);
+
   const connectionMeta = useMemo(() => {
     if (connectionState === 'live') {
       return {
@@ -232,11 +237,11 @@ export const CollaborativeEditor = ({
       excalidrawApiRef.current.updateScene({
         elements: nextScene.elements,
         appState: nextScene.appState as ExcalidrawAppState,
-        collaborators,
+        collaborators: collaboratorsRef.current,
         captureUpdate: CaptureUpdateAction.NEVER,
       });
     }
-  }, [collaborators, currentUserId, whiteboard.content, whiteboard.title]);
+  }, [currentUserId, whiteboard.content, whiteboard.title]);
 
   useEffect(() => {
     currentTitleRef.current = title;
@@ -294,7 +299,7 @@ export const CollaborativeEditor = ({
           excalidrawApiRef.current.updateScene({
             elements: nextScene.elements,
             appState: nextScene.appState as ExcalidrawAppState,
-            collaborators,
+            collaborators: collaboratorsRef.current,
             captureUpdate: CaptureUpdateAction.NEVER,
           });
         }
@@ -367,7 +372,7 @@ export const CollaborativeEditor = ({
         excalidrawApiRef.current.updateScene({
           elements: nextScene.elements,
           appState: nextScene.appState as ExcalidrawAppState,
-          collaborators,
+          collaborators: collaboratorsRef.current,
           captureUpdate: CaptureUpdateAction.NEVER,
         });
       }
@@ -384,7 +389,7 @@ export const CollaborativeEditor = ({
       socket.disconnect();
       disconnectRealtimeSocket();
     };
-  }, [accessToken, collaborators, currentUserId, whiteboard.id]);
+  }, [accessToken, currentUserId, whiteboard.id]);
 
   useEffect(() => {
     if (!canEdit) {
