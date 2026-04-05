@@ -68,6 +68,7 @@ export const CollaborativeEditor = ({
   const broadcastTimerRef = useRef<number | null>(null);
   const cursorBroadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
+  const suppressExcalidrawChangeRef = useRef(false);
   const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
   const currentSceneRef = useRef<ExcalidrawSceneSnapshot>(
     parseStoredExcalidrawScene(whiteboard.content),
@@ -89,6 +90,28 @@ export const CollaborativeEditor = ({
   const canEdit = whiteboard.permissions.canEdit;
   const canDelete = whiteboard.permissions.canDelete;
   const canInvite = whiteboard.permissions.canInvite;
+
+  const syncSceneToCanvas = (
+    scene: ExcalidrawSceneSnapshot,
+    collaboratorsMap: Map<SocketId, Collaborator>,
+  ): void => {
+    if (!excalidrawApiRef.current) {
+      return;
+    }
+
+    suppressExcalidrawChangeRef.current = true;
+
+    if (Object.values(scene.files).length > 0) {
+      excalidrawApiRef.current.addFiles(Object.values(scene.files));
+    }
+
+    excalidrawApiRef.current.updateScene({
+      elements: scene.elements,
+      appState: scene.appState as ExcalidrawAppState,
+      collaborators: collaboratorsMap,
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+  };
 
   const inviteMutation = useMutation({
     mutationFn: (email: string) => createInvitation(whiteboard.id, email),
@@ -229,18 +252,7 @@ export const CollaborativeEditor = ({
     setRemoteCursors([]);
     suppressBroadcastRef.current = true;
 
-    if (excalidrawApiRef.current) {
-      if (Object.values(nextScene.files).length > 0) {
-        excalidrawApiRef.current.addFiles(Object.values(nextScene.files));
-      }
-
-      excalidrawApiRef.current.updateScene({
-        elements: nextScene.elements,
-        appState: nextScene.appState as ExcalidrawAppState,
-        collaborators: collaboratorsRef.current,
-        captureUpdate: CaptureUpdateAction.NEVER,
-      });
-    }
+    syncSceneToCanvas(nextScene, collaboratorsRef.current);
   }, [currentUserId, whiteboard.content, whiteboard.title]);
 
   useEffect(() => {
@@ -252,6 +264,7 @@ export const CollaborativeEditor = ({
       return;
     }
 
+    suppressExcalidrawChangeRef.current = true;
     excalidrawApiRef.current.updateScene({
       collaborators,
       captureUpdate: CaptureUpdateAction.NEVER,
@@ -291,18 +304,7 @@ export const CollaborativeEditor = ({
         currentSceneRef.current = nextScene;
         lastBroadcastSceneRef.current = payload.content;
 
-        if (excalidrawApiRef.current) {
-          if (Object.values(nextScene.files).length > 0) {
-            excalidrawApiRef.current.addFiles(Object.values(nextScene.files));
-          }
-
-          excalidrawApiRef.current.updateScene({
-            elements: nextScene.elements,
-            appState: nextScene.appState as ExcalidrawAppState,
-            collaborators: collaboratorsRef.current,
-            captureUpdate: CaptureUpdateAction.NEVER,
-          });
-        }
+        syncSceneToCanvas(nextScene, collaboratorsRef.current);
       }
 
       setSyncState('remote-update');
@@ -364,18 +366,7 @@ export const CollaborativeEditor = ({
       setRemoteCursors(response.activeCursors.filter((cursor) => cursor.userId !== currentUserId));
       setConnectionState('live');
 
-      if (excalidrawApiRef.current) {
-        if (Object.values(nextScene.files).length > 0) {
-          excalidrawApiRef.current.addFiles(Object.values(nextScene.files));
-        }
-
-        excalidrawApiRef.current.updateScene({
-          elements: nextScene.elements,
-          appState: nextScene.appState as ExcalidrawAppState,
-          collaborators: collaboratorsRef.current,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        });
-      }
+      syncSceneToCanvas(nextScene, collaboratorsRef.current);
     });
 
     return () => {
@@ -468,6 +459,16 @@ export const CollaborativeEditor = ({
     appState: ExcalidrawAppState,
     files: BinaryFiles,
   ): void => {
+    if (suppressExcalidrawChangeRef.current) {
+      suppressExcalidrawChangeRef.current = false;
+      currentSceneRef.current = {
+        elements,
+        appState,
+        files,
+      };
+      return;
+    }
+
     currentSceneRef.current = {
       elements,
       appState,
