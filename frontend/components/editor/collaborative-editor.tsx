@@ -3,7 +3,7 @@
 import { CaptureUpdateAction, Excalidraw } from '@excalidraw/excalidraw';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CollaborationPanel } from '@/components/editor/collaboration-panel';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,18 @@ export const CollaborativeEditor = ({
   const broadcastTimerRef = useRef<number | null>(null);
   const cursorBroadcastTimerRef = useRef<number | null>(null);
   const suppressBroadcastRef = useRef(true);
-  const suppressExcalidrawChangeRef = useRef(false);
+  /**
+   * Ignore onChange while we drive the canvas imperatively. Excalidraw can emit several
+   * onChange calls per addFiles/updateScene; a microtask ends the window after sync work.
+   */
+  const programmaticExcalidrawDepthRef = useRef(0);
+
+  const beginProgrammaticExcalidrawUpdate = (): void => {
+    programmaticExcalidrawDepthRef.current += 1;
+    queueMicrotask(() => {
+      programmaticExcalidrawDepthRef.current -= 1;
+    });
+  };
   const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
   const currentSceneRef = useRef<ExcalidrawSceneSnapshot>(
     parseStoredExcalidrawScene(whiteboard.content),
@@ -99,7 +110,7 @@ export const CollaborativeEditor = ({
       return;
     }
 
-    suppressExcalidrawChangeRef.current = true;
+    beginProgrammaticExcalidrawUpdate();
 
     if (Object.values(scene.files).length > 0) {
       excalidrawApiRef.current.addFiles(Object.values(scene.files));
@@ -264,7 +275,7 @@ export const CollaborativeEditor = ({
       return;
     }
 
-    suppressExcalidrawChangeRef.current = true;
+    beginProgrammaticExcalidrawUpdate();
     excalidrawApiRef.current.updateScene({
       collaborators,
       captureUpdate: CaptureUpdateAction.NEVER,
@@ -441,62 +452,6 @@ export const CollaborativeEditor = ({
     };
   }, [canEdit, sceneRevision, title, whiteboard.id]);
 
-  const flushCursorPresence = (): void => {
-    cursorBroadcastTimerRef.current = null;
-
-    if (!socketRef.current || !socketRef.current.connected) {
-      return;
-    }
-
-    socketRef.current.emit('update_cursor', {
-      whiteboardId: whiteboard.id,
-      cursor: pendingCursorRef.current,
-    });
-  };
-
-  const handleExcalidrawChange = (
-    elements: readonly OrderedExcalidrawElement[],
-    appState: ExcalidrawAppState,
-    files: BinaryFiles,
-  ): void => {
-    if (suppressExcalidrawChangeRef.current) {
-      suppressExcalidrawChangeRef.current = false;
-      currentSceneRef.current = {
-        elements,
-        appState,
-        files,
-      };
-      return;
-    }
-
-    currentSceneRef.current = {
-      elements,
-      appState,
-      files,
-    };
-    setSceneRevision((currentRevision) => currentRevision + 1);
-  };
-
-  const handlePointerUpdate = (payload: {
-    pointer: {
-      x: number;
-      y: number;
-      tool: 'pointer' | 'laser';
-    };
-    button: 'down' | 'up';
-  }): void => {
-    pendingCursorRef.current = {
-      x: payload.pointer.x,
-      y: payload.pointer.y,
-    };
-
-    if (cursorBroadcastTimerRef.current !== null) {
-      return;
-    }
-
-    cursorBroadcastTimerRef.current = window.setTimeout(flushCursorPresence, 48);
-  };
-
   useEffect(() => {
     return () => {
       if (cursorBroadcastTimerRef.current !== null) {
@@ -509,71 +464,164 @@ export const CollaborativeEditor = ({
     return parseStoredExcalidrawScene(whiteboard.content);
   }, [whiteboard.content]);
 
+  const excalidrawInitialData = useMemo(
+    () => ({
+      elements: initialScene.elements,
+      appState: {
+        ...getDefaultExcalidrawAppState(),
+        ...initialScene.appState,
+      },
+      files: initialScene.files,
+    }),
+    [initialScene],
+  );
+
+  const excalidrawUiOptions = useMemo(
+    () => ({
+      tools: {
+        image: true,
+      },
+    }),
+    [],
+  );
+
+  const handleExcalidrawApi = useCallback((api: ExcalidrawImperativeAPI) => {
+    excalidrawApiRef.current = api;
+  }, []);
+
+  const handleExcalidrawChange = useCallback(
+    (
+      elements: readonly OrderedExcalidrawElement[],
+      appState: ExcalidrawAppState,
+      files: BinaryFiles,
+    ): void => {
+      const prev = currentSceneRef.current;
+      currentSceneRef.current = {
+        elements,
+        appState,
+        files,
+      };
+
+      if (programmaticExcalidrawDepthRef.current > 0) {
+        return;
+      }
+
+      if (
+        prev.elements === elements &&
+        prev.appState === appState &&
+        prev.files === files
+      ) {
+        return;
+      }
+
+      setSceneRevision((currentRevision) => currentRevision + 1);
+    },
+    [],
+  );
+
+  const flushCursorPresence = useCallback((): void => {
+    cursorBroadcastTimerRef.current = null;
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      return;
+    }
+
+    socketRef.current.emit('update_cursor', {
+      whiteboardId: whiteboard.id,
+      cursor: pendingCursorRef.current,
+    });
+  }, [whiteboard.id]);
+
+  const handlePointerUpdate = useCallback(
+    (payload: {
+      pointer: {
+        x: number;
+        y: number;
+        tool: 'pointer' | 'laser';
+      };
+      button: 'down' | 'up';
+    }): void => {
+      pendingCursorRef.current = {
+        x: payload.pointer.x,
+        y: payload.pointer.y,
+      };
+
+      if (cursorBroadcastTimerRef.current !== null) {
+        return;
+      }
+
+      cursorBroadcastTimerRef.current = window.setTimeout(flushCursorPresence, 48);
+    },
+    [flushCursorPresence],
+  );
+
+  const duplicateWhiteboardMutate = duplicateMutation.mutate;
+  const duplicateWhiteboardPending = duplicateMutation.isPending;
+  const deleteWhiteboardMutate = deleteMutation.mutate;
+
+  const renderTopRightUI = useCallback(
+    () => (
+      <div className="mr-3 mt-3 flex items-center gap-2 rounded-[18px] border border-white/10 bg-[#080808]/92 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+        <Button
+          variant="secondary"
+          className="rounded-[14px] px-3 py-2"
+          onClick={() => duplicateWhiteboardMutate()}
+          disabled={duplicateWhiteboardPending}
+        >
+          {duplicateWhiteboardPending ? 'Duplicating...' : 'Duplicate'}
+        </Button>
+        <Button
+          variant="secondary"
+          className="rounded-[14px] px-3 py-2"
+          onClick={() => setIsCollaborationPanelOpen(true)}
+        >
+          People
+        </Button>
+        <Button
+          variant="ghost"
+          className="rounded-[14px] px-3 py-2"
+          onClick={() => router.push('/dashboard')}
+        >
+          Exit
+        </Button>
+        {canDelete ? (
+          <Button
+            variant="danger"
+            className="rounded-[14px] px-3 py-2"
+            onClick={() => {
+              if (window.confirm('Delete this whiteboard permanently?')) {
+                deleteWhiteboardMutate();
+              }
+            }}
+          >
+            Delete
+          </Button>
+        ) : null}
+      </div>
+    ),
+    [
+      canDelete,
+      deleteWhiteboardMutate,
+      duplicateWhiteboardMutate,
+      duplicateWhiteboardPending,
+      router,
+    ],
+  );
+
   return (
     <div className="relative h-[calc(100vh-0.75rem)] min-h-[760px] overflow-hidden rounded-[34px] border border-white/10 bg-[#0a0a0a] shadow-[0_28px_90px_rgba(0,0,0,0.4)]">
       <div className="absolute inset-0">
         <Excalidraw
           key={whiteboard.id}
-          excalidrawAPI={(api) => {
-            excalidrawApiRef.current = api;
-          }}
-          initialData={{
-            elements: initialScene.elements,
-            appState: {
-              ...getDefaultExcalidrawAppState(),
-              ...initialScene.appState,
-            },
-            files: initialScene.files,
-          }}
+          excalidrawAPI={handleExcalidrawApi}
+          initialData={excalidrawInitialData}
           onChange={handleExcalidrawChange}
           onPointerUpdate={handlePointerUpdate}
           isCollaborating
           theme="dark"
           viewModeEnabled={!canEdit}
-          UIOptions={{
-            tools: {
-              image: true,
-            },
-          }}
-          renderTopRightUI={() => (
-            <div className="mr-3 mt-3 flex items-center gap-2 rounded-[18px] border border-white/10 bg-[#080808]/92 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-              <Button
-                variant="secondary"
-                className="rounded-[14px] px-3 py-2"
-                onClick={() => duplicateMutation.mutate()}
-                disabled={duplicateMutation.isPending}
-              >
-                {duplicateMutation.isPending ? 'Duplicating...' : 'Duplicate'}
-              </Button>
-              <Button
-                variant="secondary"
-                className="rounded-[14px] px-3 py-2"
-                onClick={() => setIsCollaborationPanelOpen(true)}
-              >
-                People
-              </Button>
-              <Button
-                variant="ghost"
-                className="rounded-[14px] px-3 py-2"
-                onClick={() => router.push('/dashboard')}
-              >
-                Exit
-              </Button>
-              {canDelete ? (
-                <Button
-                  variant="danger"
-                  className="rounded-[14px] px-3 py-2"
-                  onClick={() => {
-                    if (window.confirm('Delete this whiteboard permanently?')) {
-                      deleteMutation.mutate();
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              ) : null}
-            </div>
-          )}
+          UIOptions={excalidrawUiOptions}
+          renderTopRightUI={renderTopRightUI}
         />
       </div>
 
