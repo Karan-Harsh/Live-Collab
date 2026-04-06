@@ -224,23 +224,23 @@ export const CollaborativeEditor = ({
     if (connectionState === 'live') {
       return {
         label: 'Realtime connected',
-        dotClassName: 'bg-white',
-        textClassName: 'text-white/78',
+        dotClassName: 'bg-emerald-500',
+        textClassName: 'text-slate-300',
       };
     }
 
     if (connectionState === 'connecting') {
       return {
         label: 'Connecting',
-        dotClassName: 'bg-white/55',
-        textClassName: 'text-white/58',
+        dotClassName: 'bg-amber-500',
+        textClassName: 'text-slate-400',
       };
     }
 
     return {
       label: 'Offline',
-      dotClassName: 'bg-white/30',
-      textClassName: 'text-white/45',
+      dotClassName: 'bg-rose-500',
+      textClassName: 'text-slate-500',
     };
   }, [connectionState]);
 
@@ -495,7 +495,6 @@ export const CollaborativeEditor = ({
       appState: ExcalidrawAppState,
       files: BinaryFiles,
     ): void => {
-      const prev = currentSceneRef.current;
       currentSceneRef.current = {
         elements,
         appState,
@@ -503,14 +502,6 @@ export const CollaborativeEditor = ({
       };
 
       if (programmaticExcalidrawDepthRef.current > 0) {
-        return;
-      }
-
-      if (
-        prev.elements === elements &&
-        prev.appState === appState &&
-        prev.files === files
-      ) {
         return;
       }
 
@@ -561,10 +552,10 @@ export const CollaborativeEditor = ({
 
   const renderTopRightUI = useCallback(
     () => (
-      <div className="mr-3 mt-3 flex items-center gap-2 rounded-[18px] border border-white/10 bg-[#080808]/92 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+      <div className="mr-3 mt-3 flex items-center gap-1.5 rounded-2xl border border-white/12 bg-[#0f1218]/88 p-1.5 shadow-[0_12px_32px_rgba(2,6,23,0.35)] backdrop-blur-md">
         <Button
           variant="secondary"
-          className="rounded-[14px] px-3 py-2"
+          className="rounded-xl border-white/12 !bg-white/[0.04] px-3 py-1.5 text-xs font-medium tracking-[-0.01em] !text-slate-100 hover:!bg-white/[0.08]"
           onClick={() => duplicateWhiteboardMutate()}
           disabled={duplicateWhiteboardPending}
         >
@@ -572,14 +563,14 @@ export const CollaborativeEditor = ({
         </Button>
         <Button
           variant="secondary"
-          className="rounded-[14px] px-3 py-2"
+          className="rounded-xl border-white/12 !bg-white/[0.04] px-3 py-1.5 text-xs font-medium tracking-[-0.01em] !text-slate-100 hover:!bg-white/[0.08]"
           onClick={() => setIsCollaborationPanelOpen(true)}
         >
           People
         </Button>
         <Button
           variant="ghost"
-          className="rounded-[14px] px-3 py-2"
+          className="rounded-xl border-white/12 !bg-transparent px-3 py-1.5 text-xs font-medium tracking-[-0.01em] !text-slate-300 hover:!bg-white/[0.08] hover:!text-slate-100"
           onClick={() => router.push('/dashboard')}
         >
           Exit
@@ -626,22 +617,22 @@ export const CollaborativeEditor = ({
       </div>
 
       <div className="pointer-events-none absolute left-4 top-4 z-20 w-full max-w-[300px]">
-        <div className="pointer-events-auto rounded-[22px] border border-white/10 bg-[#080808]/92 px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-auto rounded-2xl border border-white/12 bg-[#0f1218]/88 px-4 py-3 shadow-[0_12px_32px_rgba(2,6,23,0.35)] backdrop-blur-md">
           <div
-            className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${connectionMeta.textClassName}`}
+            className={`flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.16em] ${connectionMeta.textClassName}`}
           >
             <span className={`h-2 w-2 rounded-full ${connectionMeta.dotClassName}`} />
             <span>{connectionMeta.label}</span>
-            <span className="h-1 w-1 rounded-full bg-white/12" />
+            <span className="h-1 w-1 rounded-full bg-slate-500/80" />
             <span>{syncLabel}</span>
           </div>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="mt-2 h-auto border-none bg-transparent px-0 py-0 text-[1.7rem] font-semibold tracking-[-0.05em] text-white focus:border-none focus:bg-transparent focus:shadow-none"
+            className="mt-2 h-auto border-none bg-transparent px-0 py-0 text-[1.7rem] font-semibold tracking-[-0.04em] !text-white placeholder:!text-slate-500 focus:border-none focus:bg-transparent focus:shadow-none"
             readOnly={!canEdit}
           />
-          <div className="mt-2 flex items-center gap-2 text-xs text-white/45">
+          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
             <span>{activeCollaborators.length} active</span>
             <span>&bull;</span>
             <span>{whiteboard.accessRole === 'owner' ? 'Owner' : 'Collaborator'}</span>
